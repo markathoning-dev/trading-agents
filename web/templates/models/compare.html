@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Model Comparison{% endblock %}
+{% block content %}
+<h1>Model Comparison</h1>
+<table>
+    <thead><tr><th>Model</th><th>Avg Return</th><th>Avg Sharpe</th><th>Avg Drawdown</th><th>Runs</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+    <tr>
+        <td>{{ row.model_name }}</td>
+        <td>{{ "%.2f"|format(row.avg_return * 100) }}%</td>
+        <td>{{ "%.2f"|format(row.avg_sharpe) }}</td>
+        <td>{{ "%.2f"|format(row.avg_drawdown * 100) }}%</td>
+        <td>{{ row.count }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

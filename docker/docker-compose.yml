@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  trading-agent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - trading_data:/app/data
+    env_file:
+      - ../.env
+
+volumes:
+  trading_data:

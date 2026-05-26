@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Backtest #{{ run.id }}{% endblock %}
+{% block content %}
+<h1>Backtest #{{ run.id }} — {{ run.model_name }}</h1>
+{% if run.result %}
+<ul>
+    <li>Portfolio Value: ${{ "%.2f"|format(run.result.final_portfolio_value) }}</li>
+    <li>Return: {{ "%.2f"|format(run.result.total_return * 100) }}%</li>
+    <li>Sharpe: {{ "%.2f"|format(run.result.sharpe_ratio) }}</li>
+    <li>Max Drawdown: {{ "%.2f"|format(run.result.max_drawdown * 100) }}%</li>
+    <li>Steps: {{ run.result.num_steps }}</li>
+</ul>
+{% else %}
+<p>Status: {{ run.status }}</p>
+{% endif %}
+{% endblock %}

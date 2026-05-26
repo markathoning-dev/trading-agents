@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}New Backtest{% endblock %}
+{% block content %}
+<h1>Run New Backtest</h1>
+<form method="POST" action="/backtests/new">
+    <label>Model: <input type="text" name="model_name" value="openai/gpt-4o-mini"></label><br>
+    <label>Symbol: <input type="text" name="symbol" value="AAPL"></label><br>
+    <label>Max Steps: <input type="number" name="max_steps" value="50"></label><br>
+    <button type="submit">Run Backtest</button>
+</form>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Generate Market Data{% endblock %}
+{% block content %}
+<h1>Generate Synthetic Market Data</h1>
+<form method="POST" action="/pinn/generate">
+    <label>Model:
+        <select name="model_id">
+            {% for m in models %}
+            <option value="{{ m.id }}">{{ m.name }} ({{ m.pde_type }})</option>
+            {% endfor %}
+        </select>
+    </label><br>
+    <label>Paths: <input type="number" name="num_paths" value="10"></label><br>
+    <label>Steps: <input type="number" name="steps" value="252"></label><br>
+    <button type="submit">Generate</button>
+</form>
+{% endblock %}

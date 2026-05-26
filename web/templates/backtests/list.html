@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Backtest Runs{% endblock %}
+{% block content %}
+<h1>Backtest Runs</h1>
+<a href="/backtests/new">New Backtest</a>
+<table>
+    <thead><tr><th>ID</th><th>Model</th><th>Symbol</th><th>Status</th><th>Return</th><th>Sharpe</th><th>Date</th></tr></thead>
+    <tbody>
+    {% for run in runs %}
+    <tr>
+        <td><a href="/backtests/{{ run.id }}">{{ run.id }}</a></td>
+        <td>{{ run.model_name }}</td>
+        <td>{{ run.data_source.replace('yfinance:', '') }}</td>
+        <td>{{ run.status }}</td>
+        <td>{{ "%.2f"|format(run.result.total_return * 100) if run.result else '—' }}%</td>
+        <td>{{ "%.2f"|format(run.result.sharpe_ratio) if run.result else '—' }}</td>
+        <td>{{ run.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

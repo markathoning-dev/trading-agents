@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Train PINN{% endblock %}
+{% block content %}
+<h1>Train Market PINN</h1>
+<form method="POST" action="/pinn/train">
+    <label>Name: <input type="text" name="name" value="pinn-v1"></label><br>
+    <label>PDE Type: <select name="pde_type"><option>black_scholes</option></select></label><br>
+    <label>Epochs: <input type="number" name="epochs" value="100"></label><br>
+    <label>Symbol: <input type="text" name="symbol" value="AAPL"></label><br>
+    <button type="submit">Start Training</button>
+</form>
+{% endblock %}
