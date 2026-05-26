@@ -57,8 +57,8 @@ def test_bbo_to_multilevel_decay():
 def test_fetch_quotes(mock_client_prop):
     mock_client = MagicMock()
     mock_client.list_quotes.return_value = [
-        MockQuote(bid_price=99.5, bid_size=100, ask_price=100.5, ask_size=80, timestamp=1000001),
-        MockQuote(bid_price=99.6, bid_size=90, ask_price=100.4, ask_size=70, timestamp=1000002),
+        {"bp": 99.5, "bs": 100, "ap": 100.5, "as": 80, "t": 1000001},
+        {"bp": 99.6, "bs": 90, "ap": 100.4, "as": 70, "t": 1000002},
     ]
 
     source = PolygonDataSource(api_key="test_key")
@@ -121,3 +121,56 @@ def _make_snapshot(ts=0, bid=99.5, ask=100.5):
     from market_cgan.data.lobster import LOBSnapshot
     bp, bv, ap, av = bbo_to_multilevel(bid, 100, ask, 80)
     return LOBSnapshot(timestamp=float(ts), bid_prices=bp, bid_volumes=bv, ask_prices=ap, ask_volumes=av)
+
+
+class MockAggBar:
+    def __init__(self, o, h, l, c, v, vw, ts):
+        self.open = o
+        self.high = h
+        self.low = l
+        self.close = c
+        self.volume = v
+        self.vwap = vw
+        self.timestamp = ts
+
+
+@patch("market_cgan.data.polygon.PolygonDataSource.client")
+def test_fetch_aggregates(mock_client_prop):
+    mock_client = MagicMock()
+    mock_client.get_aggs.return_value = [
+        MockAggBar(o=100.0, h=101.0, l=99.5, c=100.5, v=10000, vw=100.3, ts=1000001),
+        MockAggBar(o=100.5, h=102.0, l=100.0, c=101.5, v=15000, vw=101.0, ts=1000002),
+    ]
+    source = PolygonDataSource(api_key="test_key")
+    with patch.object(source, "client", mock_client):
+        bars = source.fetch_aggregates("SPUS", "2026-03-26", "2026-03-26")
+    assert len(bars) == 2
+    assert bars[0].open == 100.0
+    assert bars[0].high == 101.0
+    assert bars[0].low == 99.5
+    assert bars[0].close == 100.5
+    assert bars[0].volume == 10000
+    assert bars[1].vwap == 101.0
+
+
+@patch("market_cgan.data.polygon.PolygonDataSource.client")
+def test_fetch_aggregates_calls_get_aggs(mock_client_prop):
+    from market_cgan.data.bar import Bar
+    mock_client = MagicMock()
+    mock_client.get_aggs.return_value = [
+        MockAggBar(o=100.0, h=101.0, l=99.5, c=100.5, v=10000, vw=100.3, ts=1000001),
+    ]
+    source = PolygonDataSource(api_key="test_key")
+    with patch.object(source, "client", mock_client):
+        source.fetch_aggregates("SPUS", "2026-03-26", "2026-03-26")
+    mock_client.get_aggs.assert_called_once_with("SPUS", 1, "minute", "2026-03-26", "2026-03-26")
+
+
+@patch("market_cgan.data.polygon.PolygonDataSource.client")
+def test_fetch_aggregates_error_propagates(mock_client_prop):
+    mock_client = MagicMock()
+    mock_client.get_aggs.side_effect = Exception("API error")
+    source = PolygonDataSource(api_key="test_key")
+    with patch.object(source, "client", mock_client):
+        with pytest.raises(Exception, match="API error"):
+            source.fetch_aggregates("SPUS", "bad-date", "bad-date")

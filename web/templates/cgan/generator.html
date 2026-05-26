@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}CGAN Bar Generator{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.cjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+{% endblock %}
+{% block content %}
+<h1>CGAN Bar Generator</h1>
+
+<section>
+    <h2>Select Model</h2>
+    <form id="gen-form">
+        <label>Model:
+            <select name="model_path">
+                {% for m in models %}
+                <option value="{{ m.path }}" data-ref="{{ m.ref_price }}">{{ m.name }} (ref=${{ "%.2f"|format(m.ref_price) }})</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Bars: <input type="number" name="n_bars" value="100" min="10" max="500"></label>
+        <button type="button" onclick="generateBars()">Generate</button>
+    </form>
+</section>
+
+<section>
+    <h2>Candlestick Chart</h2>
+    <div style="position:relative;height:500px;width:100%">
+        <canvas id="chart"></canvas>
+    </div>
+</section>
+
+<section>
+    <h2>Agent Comparison</h2>
+    <form id="compare-form">
+        <label>Trade steps: <input type="number" name="n_trade_steps" value="20" min="5" max="200"></label>
+        <button type="button" onclick="compareAgents()">Compare Agents</button>
+    </form>
+    <div id="compare-results"></div>
+</section>
+
+<script>
+let chart = null;
+const refPrice = {{ models[0].ref_price if models else 100.0 }};
+
+function generateBars() {
+    const f = document.getElementById('gen-form');
+    const sel = f.querySelector('select[name=model_path]');
+    const model_path = sel.value;
+    const ref_price = parseFloat(sel.selectedOptions[0].dataset.ref);
+    const n_bars = parseInt(f.querySelector('input[name=n_bars]').value);
+
+    fetch('/cgan/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({model_path, ref_price, n_bars})
+    })
+    .then(r => r.json())
+    .then(data => {
+        renderChart(data.bars);
+    });
+}
+
+function renderChart(bars) {
+    const ctx = document.getElementById('chart').getContext('2d');
+    if (chart) chart.destroy();
+
+    const candlesticks = bars.map(b => ({
+        x: new Date(b.t * 1000),
+        o: b.o, h: b.h, l: b.l, c: b.c
+    }));
+    const volumes = bars.map(b => ({
+        x: new Date(b.t * 1000),
+        y: b.v
+    }));
+
+    chart = new Chart(ctx, {
+        type: 'candlestick',
+        data: {
+            datasets: [{
+                label: 'OHLCV',
+                data: candlesticks,
+                color: {
+                    up: '#26a69a',
+                    down: '#ef5350',
+                    unchanged: '#999',
+                }
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { type: 'time', time: { unit: 'bar' } }
+            }
+        }
+    });
+}
+
+function compareAgents() {
+    const f = document.getElementById('gen-form');
+    const cf = document.getElementById('compare-form');
+    const sel = f.querySelector('select[name=model_path]');
+    const model_path = sel.value;
+    const ref_price = parseFloat(sel.selectedOptions[0].dataset.ref);
+    const n_bars = parseInt(f.querySelector('input[name=n_bars]').value);
+    const n_trade_steps = parseInt(cf.querySelector('input[name=n_trade_steps]').value);
+
+    document.getElementById('compare-results').innerHTML = '<p>Running agents...</p>';
+
+    fetch('/cgan/compare', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({model_path, ref_price, n_bars, n_trade_steps})
+    })
+    .then(r => r.json())
+    .then(data => {
+        renderChart(data.bars);
+        let html = '<table><thead><tr><th>Metric</th><th>Risk-Averse</th><th>Risk-Taker</th></tr></thead><tbody>';
+        const keys = Object.keys(data.results['Risk-Averse']);
+        for (const key of keys) {
+            const v1 = data.results['Risk-Averse'][key];
+            const v2 = data.results['Risk-Taker'][key];
+            html += `<tr><td>${key}</td><td>${v1}</td><td>${v2}</td></tr>`;
+        }
+        html += '</tbody></table>';
+        document.getElementById('compare-results').innerHTML = html;
+    });
+}
+</script>
+{% endblock %}

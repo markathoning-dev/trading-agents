@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 import numpy as np
 import torch
-from datetime import date, datetime
+
 from torch.utils.data import Dataset
 from typing import Optional
+from market_cgan.data.bar import Bar
 from market_cgan.data.lobster import LOBSnapshot
 from market_cgan.data.features import MarketFeatureExtractor
 
@@ -48,38 +49,66 @@ class PolygonDataSource:
         self,
         ticker: str,
         date_str: str,
-        max_pages: int = 10,
     ) -> list[LOBSnapshot]:
         snapshots: list[LOBSnapshot] = []
         seen_timestamps: set[int] = set()
 
-        for quote in self.client.list_quotes(ticker, date_str):
-            ts = int(getattr(quote, "timestamp", 0))
-            if ts in seen_timestamps:
+        raw = self.client.list_quotes(ticker, timestamp=date_str)
+        quotes = raw if isinstance(raw, list) else raw.get("results", []) if isinstance(raw, dict) else []
+
+        for quote in quotes:
+            if isinstance(quote, dict):
+                ts = int(quote.get("t", 0) or 0)
+                bid_px = float(quote.get("bp", 0) or 0)
+                bid_sz = float(quote.get("bs", 0) or 0)
+                ask_px = float(quote.get("ap", 0) or 0)
+                ask_sz = float(quote.get("as", 0) or 0)
+            else:
+                ts = int(getattr(quote, "timestamp", 0) or 0)
+                bid_px = float(getattr(quote, "bid_price", 0) or 0)
+                bid_sz = float(getattr(quote, "bid_size", 0) or 0)
+                ask_px = float(getattr(quote, "ask_price", 0) or 0)
+                ask_sz = float(getattr(quote, "ask_size", 0) or 0)
+
+            if ts in seen_timestamps or bid_px <= 0 or ask_px <= 0:
                 continue
             seen_timestamps.add(ts)
-
-            bid_px = float(getattr(quote, "bid_price", 0) or 0)
-            bid_sz = float(getattr(quote, "bid_size", 0) or 0)
-            ask_px = float(getattr(quote, "ask_price", 0) or 0)
-            ask_sz = float(getattr(quote, "ask_size", 0) or 0)
-
-            if bid_px <= 0 or ask_px <= 0:
-                continue
 
             bp, bv, ap, av = bbo_to_multilevel(bid_px, bid_sz, ask_px, ask_sz)
             snapshots.append(LOBSnapshot(timestamp=ts, bid_prices=bp, bid_volumes=bv, ask_prices=ap, ask_volumes=av))
 
         return snapshots
 
+    def fetch_aggregates(
+        self,
+        ticker: str,
+        start_date: str,
+        end_date: str,
+        timespan: str = "minute",
+    ) -> list[Bar]:
+        bars: list[Bar] = []
+        agg_list = self.client.get_aggs(ticker, 1, timespan, start_date, end_date)
+        for agg in agg_list:
+            bars.append(Bar(
+                timestamp=int(getattr(agg, "timestamp", 0) or 0),
+                open=float(getattr(agg, "open", 0) or 0),
+                high=float(getattr(agg, "high", 0) or 0),
+                low=float(getattr(agg, "low", 0) or 0),
+                close=float(getattr(agg, "close", 0) or 0),
+                volume=float(getattr(agg, "volume", 0) or 0),
+                vwap=float(getattr(agg, "vwap", 0) or 0),
+            ))
+        return bars
+
     def fetch_trades(self, ticker: str, date_str: str) -> list[dict]:
         trades = []
-        for t in self.client.list_trades(ticker, date_str):
+        raw = self.client.list_trades(ticker, timestamp=date_str)
+        items = raw if isinstance(raw, list) else raw.get("results", []) if isinstance(raw, dict) else []
+        for t in items:
             trades.append({
-                "price": float(getattr(t, "price", 0) or 0),
-                "size": float(getattr(t, "size", 0) or 0),
-                "timestamp": int(getattr(t, "timestamp", 0)),
-                "side": str(getattr(t, "conditions", [None])[0]) if getattr(t, "conditions", None) else "",
+                "price": float(t.get("p", 0) if isinstance(t, dict) else getattr(t, "price", 0) or 0),
+                "size": float(t.get("s", 0) if isinstance(t, dict) else getattr(t, "size", 0) or 0),
+                "timestamp": int(t.get("t", 0) if isinstance(t, dict) else getattr(t, "timestamp", 0) or 0),
             })
         return trades
 
