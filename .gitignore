@@ -33,3 +33,8 @@ Thumbs.db
 .python-version
 
 .gstack/
+
+# Frontend
+node_modules/
+web/static/dist/
+*.tsbuildinfo

@@ -4,6 +4,36 @@ from trading_agent.core.state import AgentState
 from trading_agent.core.schemas import TradeDecision
 from trading_agent.core.nodes import execute_trade, calculate_reward, execute_lob_trade
 from trading_agent.core.reward import multicomponent_reward, aggressive_reward
+from trading_agent.core.cache import llm_cache
+
+
+def _decide_with_cache(state: AgentState, llm, system: str, user: str) -> TradeDecision:
+    if llm is None:
+        return TradeDecision(action="HOLD", quantity=0, reason="no llm")
+    cached = llm_cache.get(state)
+    if cached is not None:
+        return cached
+    try:
+        structured_llm = llm.with_structured_output(TradeDecision)
+        decision = structured_llm.invoke([
+            SystemMessage(content=system),
+            HumanMessage(content=user),
+        ])
+    except Exception:
+        text_llm = llm.bind(stop=["\n"])
+        resp = text_llm.invoke([
+            SystemMessage(content=system + " Reply with one line: ACTION quantity reason"),
+            HumanMessage(content=user),
+        ])
+        text = resp.content.strip() if hasattr(resp, "content") else str(resp)
+        import re
+        m = re.match(r"(BUY|SELL|HOLD)\s+(\d+)\s+(.*)", text)
+        if m:
+            decision = TradeDecision(action=m.group(1), quantity=int(m.group(2)), reason=m.group(3))
+        else:
+            decision = TradeDecision(action="HOLD", quantity=0, reason="parse fallback")
+    llm_cache.put(state, decision)
+    return decision
 
 _REWARD_DESCRIPTIONS = {
     multicomponent_reward: (
@@ -38,28 +68,7 @@ def build_graph(llm, fee_rate: float = 0.001, risk_lambda: float = 0.1, max_step
         prices = state.get("price_history", [])
         if len(prices) >= 2:
             user += f", trend={((prices[-1] / prices[0]) - 1) * 100:.1f}% over {len(prices)} steps"
-        if llm is None:
-            decision = TradeDecision(action="HOLD", quantity=0, reason="no llm")
-        else:
-            try:
-                structured_llm = llm.with_structured_output(TradeDecision)
-                decision = structured_llm.invoke([
-                    SystemMessage(content=system),
-                    HumanMessage(content=user),
-                ])
-            except Exception:
-                text_llm = llm.bind(stop=["\n"])
-                resp = text_llm.invoke([
-                    SystemMessage(content=system + " Reply with one line: ACTION quantity reason"),
-                    HumanMessage(content=user),
-                ])
-                text = resp.content.strip() if hasattr(resp, "content") else str(resp)
-                import re
-                m = re.match(r"(BUY|SELL|HOLD)\s+(\d+)\s+(.*)", text)
-                if m:
-                    decision = TradeDecision(action=m.group(1), quantity=int(m.group(2)), reason=m.group(3))
-                else:
-                    decision = TradeDecision(action="HOLD", quantity=0, reason="parse fallback")
+        decision = _decide_with_cache(state, llm, system, user)
         result = execute_trade(AgentState(**state), decision, fee_rate)
         return {**result, "step": state["step"] + 1, "action": f"{decision.action} {decision.quantity}"}
 
@@ -108,28 +117,7 @@ def build_lob_graph(llm, world_agent=None, fee_rate: float = 0.001, risk_lambda:
         prices = state.get("price_history", [])
         if len(prices) >= 2:
             user += f", trend={((prices[-1] / prices[0]) - 1) * 100:.1f}% over {len(prices)} steps"
-        if llm is None:
-            decision = TradeDecision(action="HOLD", quantity=0, reason="no llm")
-        else:
-            try:
-                structured_llm = llm.with_structured_output(TradeDecision)
-                decision = structured_llm.invoke([
-                    SystemMessage(content=system),
-                    HumanMessage(content=user),
-                ])
-            except Exception:
-                text_llm = llm.bind(stop=["\n"])
-                resp = text_llm.invoke([
-                    SystemMessage(content=system + " Reply with one line: ACTION quantity reason"),
-                    HumanMessage(content=user),
-                ])
-                text = resp.content.strip() if hasattr(resp, "content") else str(resp)
-                import re
-                m = re.match(r"(BUY|SELL|HOLD)\s+(\d+)\s+(.*)", text)
-                if m:
-                    decision = TradeDecision(action=m.group(1), quantity=int(m.group(2)), reason=m.group(3))
-                else:
-                    decision = TradeDecision(action="HOLD", quantity=0, reason="parse fallback")
+        decision = _decide_with_cache(state, llm, system, user)
         result = execute_lob_trade(AgentState(**state), decision, fee_rate)
         return {**result, "step": state["step"] + 1, "action": f"{decision.action} {decision.quantity}"}
 
@@ -191,28 +179,7 @@ def build_bar_graph(llm, bar_world_agent=None, fee_rate: float = 0.001, risk_lam
         prices = state.get("price_history", [])
         if len(prices) >= 2:
             user += f", trend={((prices[-1] / prices[0]) - 1) * 100:.1f}% over {len(prices)} steps"
-        if llm is None:
-            decision = TradeDecision(action="HOLD", quantity=0, reason="no llm")
-        else:
-            try:
-                structured_llm = llm.with_structured_output(TradeDecision)
-                decision = structured_llm.invoke([
-                    SystemMessage(content=system),
-                    HumanMessage(content=user),
-                ])
-            except Exception:
-                text_llm = llm.bind(stop=["\n"])
-                resp = text_llm.invoke([
-                    SystemMessage(content=system + " Reply with one line: ACTION quantity reason"),
-                    HumanMessage(content=user),
-                ])
-                text = resp.content.strip() if hasattr(resp, "content") else str(resp)
-                import re
-                m = re.match(r"(BUY|SELL|HOLD)\s+(\d+)\s+(.*)", text)
-                if m:
-                    decision = TradeDecision(action=m.group(1), quantity=int(m.group(2)), reason=m.group(3))
-                else:
-                    decision = TradeDecision(action="HOLD", quantity=0, reason="parse fallback")
+        decision = _decide_with_cache(state, llm, system, user)
         result = execute_trade(AgentState(**state), decision, fee_rate)
         return {**result, "step": state["step"] + 1, "action": f"{decision.action} {decision.quantity}"}
 

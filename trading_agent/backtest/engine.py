@@ -5,6 +5,7 @@ from trading_agent.core.graph import build_graph
 from trading_agent.core.reward import multicomponent_reward
 from trading_agent.market.simulators import HistoricalMarket
 from trading_agent.backtest.metrics import compute_sharpe, compute_max_drawdown
+from trading_agent.core.cache import llm_cache
 
 
 def backtest_agent(
@@ -16,6 +17,7 @@ def backtest_agent(
     max_steps: Optional[int] = None,
     reward_fn=None,
 ) -> Dict:
+    llm_cache.clear()
     market = HistoricalMarket(price_series.copy())
     steps = max_steps or len(price_series)
     graph = build_graph(llm, fee_rate=fee_rate, risk_lambda=risk_lambda, max_steps=1, reward_fn=reward_fn or multicomponent_reward)

@@ -1,6 +1,6 @@
 # Trading Agent
 
-LLM-powered trading agent with LangGraph orchestration, backtesting, PINN and CGAN market simulation, and a web dashboard.
+LLM-powered trading agent with LangGraph orchestration, backtesting, PINN and CGAN market simulation, and a React web dashboard.
 
 <p align="center">
   <img src="screenshots/cli.png" alt="trading-agent CLI" width="720">
@@ -13,36 +13,37 @@ LLM-powered trading agent with LangGraph orchestration, backtesting, PINN and CG
                        │   │   │
          ┌─────────────┘   │   └──────────────┐
          ▼                 ▼                  ▼
-   ┌──────────┐    ┌──────────────┐    ┌──────────┐
-   │ Backtest │    │  PINN/CGAN   │    │  Web     │
-   │ Commands │    │  Commands    │    │ Dashboard│
-   └────┬─────┘    └──────┬───────┘    └────┬─────┘
-        │                 │                 │
-        ▼                 ▼                 ▼
-   ┌──────────────────────────────────────────────┐
-   │              trading_agent/ (Core)           │
-   │  ┌────────┐  ┌──────────┐  ┌────────────┐   │
-   │  │  Core  │  │  Models  │  │   Market   │   │
-   │  │ State, │  │ LLM Gate │  │   Sources  │   │
-   │  │ Graph, │  │  ways    │  │ Sim, Yahoo │   │
-   │  │ Nodes, │  │          │  │ LOB Source │   │
-   │  │ Reward │  │          │  │            │   │
-   │  └────────┘  └──────────┘  └────────────┘   │
-   │  ┌────────────────────────────┐              │
-   │  │     Backtest Engine        │              │
-   │  │     + Metrics              │              │
-   │  └────────────────────────────┘              │
-   │  ┌────────────────────────────┐              │
-   │  │   Config (pydantic)        │              │
-   │  └────────────────────────────┘              │
-   └──────────────────────────────────────────────┘
+   ┌──────────┐    ┌──────────────┐    ┌──────────────┐
+   │ Backtest │    │  PINN/CGAN   │    │  Web (React) │
+   │ Commands │    │  Commands    │    │  + JSON API  │
+   └────┬─────┘    └──────┬───────┘    └──────┬───────┘
+        │                 │                   │
+        ▼                 ▼                   ▼
+   ┌───────────────────────────────────────────────────┐
+   │              trading_agent/ (Core)                │
+   │  ┌────────┐  ┌──────────┐  ┌────────────────┐    │
+   │  │  Core  │  │  Models  │  │   Market       │    │
+   │  │ State, │  │ LLM Gate │  │   Sources      │    │
+   │  │ Graph, │  │  ways    │  │ Polygon, Sim   │    │
+   │  │ Nodes, │  │          │  │                │    │
+   │  │ Reward │  │          │  │                │    │
+   │  │ Cache  │  │          │  │                │    │
+   │  └────────┘  └──────────┘  └────────────────┘    │
+   │  ┌─────────────────────────────────┐              │
+   │  │     Backtest Engine + Parallel  │              │
+   │  │     + Metrics + LLM Cache      │              │
+   │  └─────────────────────────────────┘              │
+   │  ┌─────────────────────────────────┐              │
+   │  │   Config (pydantic)             │              │
+   │  └─────────────────────────────────┘              │
+   └───────────────────────────────────────────────────┘
         │                 │                  │
         ▼                 ▼                  ▼
-   ┌──────────┐    ┌──────────────┐    ┌──────────┐
-   │market_cgan│   │ market_pinn  │    │  web/    │
-   │ CGAN Gen  │   │  PINN Model  │    │ FastAPI  │
-   │ LOB Sim   │   │  BS PDE      │    │ DB + UI  │
-   └──────────┘    └──────────────┘    └──────────┘
+   ┌──────────┐    ┌──────────────┐    ┌──────────────┐
+   │market_cgan│   │ market_pinn  │    │  web/        │
+   │ CGAN Gen  │   │  PINN Model  │    │ FastAPI API  │
+   │ Bar/LOB   │   │  BS PDE      │    │ + React SPA  │
+   └──────────┘    └──────────────┘    └──────────────┘
 ```
 
 ## Features
@@ -50,39 +51,32 @@ LLM-powered trading agent with LangGraph orchestration, backtesting, PINN and CG
 - **LLM Agent** — LangGraph agent that decides BUY/SELL/HOLD using any LLM provider via LiteLLM
 - **Multi-Provider LLM** — Kilo API, OpenAI, Anthropic, or any LiteLLM-supported provider
 - **Reward Functions** — Risk-averse (`multicomponent_reward` with drawdown penalty) and risk-taker (`aggressive_reward` with volatility bonus)
-- **LOB-Aware Trading** — Extended agent that interacts with a full limit order book (market orders, limit orders, fills, spreads)
-- **Backtesting** — Historical (yfinance) and simulated data, with Sharpe ratio and max drawdown metrics
-- **CGAN Market Simulator** — Conditional GAN that learns limit order book dynamics from real data and generates synthetic LOB sequences
+- **Parallel Backtesting** — Compare N models concurrently using `ThreadPoolExecutor`. LLM response cache avoids repeat calls on identical market states (thread-local, LRU eviction).
+- **Polygon.io Data** — Historical OHLCV aggregates and NBBO quotes via Polygon.io. No yfinance dependency.
+- **CGAN Market Simulator** — Conditional GAN that learns market dynamics from real data, generates synthetic OHLCV bars or LOB sequences
 - **PINN Market Simulator** — Physics-Informed Neural Network constrained by Black-Scholes PDE for synthetic price path generation
-- **World Agent** — Autonomous market-making agent driven by the trained CGAN generator
-- **Physics-Informed Training** — CGAN generator can be regularized with spread, action distribution, side balance, and quantity constraints
-- **Web Dashboard** — FastAPI + Jinja2/HTMX UI for managing backtests and PINN training
-- **Docker Deployment** — Dockerfile + docker-compose for one-command startup
+- **Web Dashboard** — React SPA (Vite + TypeScript) with FastAPI JSON backend. Deployable as static files independently.
+- **Docker Deployment** — Multi-stage Dockerfile builds frontend + backend, one-command startup
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.12+
+- Node.js 20+ (for frontend development)
 - pip
+- [Polygon.io](https://polygon.io) API key (Starter plan $29/mo sufficient)
 
 ### Installation
 
 ```bash
 git clone <repo-url> && cd trading-agent
-pip install -e ".[web,pinn,dev]"
-```
-
-Optional data sources:
-
-```bash
-pip install polygon>=1.2       # Polygon.io NBBO quotes
-pip install yfinance           # already included via langchain-community
+pip install -e ".[web,pinn,dev,frontend]"
 ```
 
 ### Configuration
 
-Copy and edit `.env`:
+Copy and edit `.env` and set your Polygon API key:
 
 ```bash
 cp .env.example .env
@@ -95,12 +89,20 @@ Key settings:
 | `OPENAI_API_KEY` | — | Kilo API or OpenAI key for LLM calls |
 | `KILO_API_BASE` | — | Custom API base URL for Kilo gateway |
 | `ANTHROPIC_API_KEY` | — | Anthropic API key |
-| `POLYGON_API_KEY` | — | Polygon.io API key for LOB data |
+| `POLYGON_API_KEY` | — | **Required.** Polygon.io API key for all market data |
 | `DATABASE_URL` | `sqlite:///data/trading.db` | Web dashboard database |
 | `DEFAULT_MODEL` | `openai/gpt-4o-mini` | Default LLM for agent decisions |
 | `FEE_RATE` | `0.001` | Trading fee rate per transaction |
 | `RISK_LAMBDA` | `0.1` | Default risk penalty weight |
 | `LOG_LEVEL` | `INFO` | Logging level |
+| `LLM_CACHE_SIZE` | `1000` | Max cached LLM responses per thread |
+| `LLM_CACHE_ENABLED` | `true` | Enable LLM response deduplication |
+
+### Build Frontend
+
+```bash
+cd web/frontend && npm ci && npm run build
+```
 
 ## CLI Reference
 
@@ -111,14 +113,14 @@ trading-agent --help
 ### Backtest Commands
 
 ```bash
-# Run a single backtest
+# Run a single backtest (requires POLYGON_API_KEY)
 trading-agent backtest run --symbol AAPL --steps 50
 
-# Compare multiple models side-by-side
-trading-agent backtest compare --symbol AAPL --models "gpt-4o-mini,claude-sonnet"
+# Compare multiple models side-by-side (parallel, ~4x faster)
+trading-agent backtest compare --symbol AAPL --models "gpt-4o-mini,claude-sonnet" --workers 4
 
-# Compare risk-averse vs risk-taker on the same data
-trading-agent backtest compare-risk --symbol AAPL --steps 3600
+# Compare risk-averse vs risk-taker (parallel)
+trading-agent backtest compare-risk --symbol AAPL --steps 3600 --workers 2
 ```
 
 ### CGAN Commands
@@ -127,16 +129,16 @@ trading-agent backtest compare-risk --symbol AAPL --steps 3600
 # Train on synthetic data
 trading-agent cgan train --epochs 100 --data-source synthetic
 
-# Train on Polygon.io NBBO data (Starter plan sufficient)
+# Train on Polygon.io OHLCV aggregates (bar mode)
 export POLYGON_API_KEY=poly_...
-trading-agent cgan train --data-source polygon --polygon-ticker AAPL \
-  --polygon-dates 2025-01-10,2025-01-13 --epochs 50 --physics-weight 0.01
+trading-agent cgan train --bar-mode --data-source polygon --polygon-ticker AAPL \
+  --polygon-dates 2025-01-10,2025-01-13 --epochs 50
 
-# Generate action sequences from trained model
-trading-agent cgan generate --model models/cgan/generator.pt --steps 252
+# Generate synthetic OHLCV bars from trained model
+trading-agent cgan generate --model models/cgan/generator.pt --bar-mode --steps 252
 
-# Run interactive LOB simulation
-trading-agent cgan simulate --model models/cgan/generator.pt --steps 100
+# Run interactive OHLCV bar simulation
+trading-agent cgan simulate --model models/cgan/generator.pt --bar-mode --steps 100
 ```
 
 ### PINN Commands
@@ -155,13 +157,13 @@ trading-agent pinn generate --model-id 1 --paths 100 --steps 252
 trading-agent serve
 ```
 
-Then open `http://localhost:8000`.
+Then open `http://localhost:8000/app` for the React dashboard.
 
 ## Architecture
 
 ### Trading Agent Core (`trading_agent/`)
 
-The agent is built as a **LangGraph** with two nodes:
+The agent is built as a **LangGraph** with configurable node graph:
 
 ```
 ┌────────────────┐
@@ -171,7 +173,8 @@ The agent is built as a **LangGraph** with two nodes:
         ▼
 ┌──────────────────────────────────┐
 │  decide_and_trade                │  LLM decides BUY/SELL/HOLD
-│  - structured output via LCEL    │  Trade is executed, state updated
+│  - LLM response cache           │  Cache hit skips LLM call
+│  - structured output via LCEL   │  Trade is executed, state updated
 │  - text parsing fallback         │
 └───────┬──────────────────────────┘
         │
@@ -193,14 +196,16 @@ The agent is built as a **LangGraph** with two nodes:
 | `core/state.py` | `AgentState` TypedDict — cash, shares, price, history, portfolio values |
 | `core/schemas.py` | `TradeDecision`, `LimitOrder`, `MarketOrder` — Pydantic LLM output schemas |
 | `core/nodes.py` | `fetch_price`, `execute_trade`, `execute_lob_trade`, `calculate_reward` |
-| `core/graph.py` | `build_graph` (standard agent), `build_lob_graph` (LOB-aware agent) |
+| `core/graph.py` | `build_graph` (standard), `build_lob_graph` (LOB-aware), `build_bar_graph` (bar-aware) |
 | `core/reward.py` | `multicomponent_reward` (risk-averse), `aggressive_reward` (risk-taker) |
+| `core/cache.py` | `LLMResponseCache` — thread-local LRU cache deduplicating LLM calls |
 | `models/gateway.py` | `KiloGateway` — LiteLLM abstraction supporting 100+ providers |
 | `models/mock.py` | `MockLLM` / `MockGateway` — always returns HOLD for testing |
 | `market/simulators.py` | `RandomWalkMarket`, `HistoricalMarket` |
-| `market/yahoo.py` | `YahooMarket` — fetches yfinance data |
+| `market/polygon_market.py` | `fetch_prices` — OHLCV price series via Polygon.io |
 | `market/lob_source.py` | `CGANMarketSource` — bridges CGAN simulation into agent |
 | `backtest/engine.py` | `backtest_agent` — main backtesting loop |
+| `backtest/parallel.py` | `parallel_backtest` — N concurrent backtests via ThreadPoolExecutor |
 | `backtest/metrics.py` | `compute_sharpe`, `compute_max_drawdown` |
 
 #### Reward Functions
@@ -219,62 +224,35 @@ reward = profit + λ_volatility × |profit| − trade_cost
 
 ### CGAN Market Simulator (`market_cgan/`)
 
-Conditional GAN that learns to generate realistic limit order book actions.
+Conditional GAN that generates synthetic market data. Two modes:
+
+**Bar mode (Polygon-driven):** Generator produces OHLCV bars from 6-dim features. Replaces the older LOB-based approach.
+
+**LOB mode (legacy):** Generator produces limit-order-book actions (action_type, side, price_offset, quantity) from 42-dim LOB snapshot features.
 
 ```
 ┌──────────┐    noise (64d)
-│ Generator│    features (42d market state)
+│ Generator│    features (6d bar or 42d LOB)
 │   MLP    │    ──────────────────────────────►
-│ 256-256- │    action_type (4-class softmax)
-│ 128      │    side (2-class softmax)
-└──────────┘    price_offset (tanh → [-1, 1])
-                 quantity (sigmoid → [0, 1])
-```
-
-**Training flow:**
-
-```
-                   fake_actions
-Generator ◄──────────────┐
-  │                       │
-  │ fake_actions          │
-  ▼                       │
-Discriminator ◄───────────┤ (detached for D update)
-  │                       │
-  ├─ real_actions ────────┤ (from dataset)
-  │                       │
-  └─ loss ───────────────►┘
-    BCE(real=1, fake=0)
-
-Generator loss:
-  BCE(fake_logits, 1)                     ← fool the discriminator
-  + physics_weight × physics_loss         ← spread, action dist, side, quantity
-  + feature_matching_weight × FM_loss     ← match real feature stats (optional)
+│ 256-256- │    OHLCV (bar) or action (LOB)
+│ 128      │
+└──────────┘
 ```
 
 **Key files:**
 
 | File | Purpose |
 |---|---|
-| `models/generator.py` | `Generator` — 3-layer MLP with 4 output heads |
+| `models/bar_generator.py` | `BarGenerator` — 6-head MLP for OHLCV bar generation |
+| `models/generator.py` | `Generator` — 4-head MLP for LOB action generation (legacy) |
 | `models/discriminator.py` | `Discriminator` — 4-layer MLP binary classifier |
-| `data/lobster.py` | `LOBSnapshot`, `LobsterDataset`, `generate_sample_lob_data` |
+| `data/bar.py` | `Bar`, `BarFeatureExtractor`, `BarDataset` |
+| `data/polygon.py` | `PolygonDataSource`, `PolygonDataset` — real data via Polygon.io |
 | `data/features.py` | `MarketFeatureExtractor` — 42-dim feature vector from LOB |
-| `data/polygon.py` | `PolygonDataSource`, `PolygonDataset` — real NBBO via Polygon.io |
-| `training/losses.py` | `generator_loss`, `discriminator_loss`, `gradient_penalty` (WGAN-GP) |
-| `training/physics_loss.py` | `physics_informed_loss` — spread, action dist, side balance, quantity |
-| `training/trainer.py` | `train_cgan` — adversarial training loop with optional physics + GP |
-| `simulation/exchange.py` | `OrderBook`, `LOBExchange` — full LOB matching engine |
-| `simulation/world_agent.py` | `WorldAgent` — CGAN-driven market-making agent |
-
-#### Physics-Informed Loss (Layer A)
-
-Four constraint terms that regularize the CGAN generator toward realistic market behavior:
-
-1. **Spread-respecting price** — penalizes limit order prices that cross the bid-ask spread
-2. **Action type distribution** — pushes batch action mix toward `[30% market, 30% limit-buy, 30% limit-sell, 10% cancel]`
-3. **Side balance** — keeps buy/sell ratio near 50/50
-4. **Quantity matching** — constrains mean quantity toward a target
+| `training/trainer.py` | `train_cgan`, `train_cgan_bar` — adversarial training loops |
+| `simulation/bar_exchange.py` | `BarExchange` — OHLCV bar accumulator |
+| `simulation/bar_world_agent.py` | `BarWorldAgent` — CGAN-driven bar simulation agent |
+| `simulation/exchange.py` | `OrderBook`, `LOBExchange` — LOB matching engine (legacy) |
 
 ### PINN Market Simulator (`market_pinn/`)
 
@@ -307,27 +285,38 @@ PDE constraint is the **Black-Scholes equation**:
 
 ### Web Dashboard (`web/`)
 
-FastAPI + Jinja2/HTMX + SQLAlchemy:
+FastAPI JSON API + React SPA (Vite + TypeScript):
 
 ```
-/               → dashboard.html (recent backtest runs)
-/backtests      → list.html (all runs)
-/backtests/new  → run.html (form to start backtest)
-/backtests/{id} → detail.html (run results)
-/models/compare → compare.html (model performance)
-/pinn/train     → PINN training form
-/pinn/generate  → PINN path generation form
+JSON API endpoints (FastAPI):
+/api/dashboard          → recent backtest runs
+/api/backtests          → all runs
+/api/backtests/{id}     → run detail with steps
+/api/backtests/new      → start new backtest
+/api/backtests/compare  → parallel compare N models
+/api/models/compare     → aggregated model comparison
+/api/pinn/models        → trained PINN models
+
+React SPA routes (Vite, served at /app/*):
+/app                    → dashboard (recent runs)
+/app/backtests          → list all runs
+/app/backtests/new      → new backtest form
+/app/backtests/{id}     → run detail
+/app/models/compare     → model comparison
+/app/pinn/train         → PINN training form
+/app/pinn/generate      → PINN generation form
 ```
+
+Jinja2 templates still available at legacy routes (`/`, `/backtests`, etc.) for backward compatibility.
 
 ### Data Sources
 
 | Source | Type | Cost | Data Provided |
 |---|---|---|---|
-| **Polygon.io Starter** | NBBO quotes | $29/mo | Historical top-of-book, 5-yr history |
+| **Polygon.io Starter** | OHLCV aggregates + NBBO | $29/mo | Historical minute/day bars, top-of-book quotes, 5-yr history |
 | **Polygon.io Advanced** | NBBO + WebSocket | $199/mo | + real-time streaming |
 | **LOBSTER** | NASDAQ L3 | €500-€2000 | Full order book depth (real) |
-| **Synthetic** | Generated | Free | Random walk LOB (for testing) |
-| **yfinance** | OHLCV | Free | Daily price data |
+| **Synthetic** | Generated | Free | Random walk data |
 
 ## Testing
 
@@ -341,11 +330,15 @@ pytest tests/test_pinn/
 pytest tests/test_core/
 pytest tests/test_backtest/
 
+# New tests
+pytest tests/test_backtest/test_parallel.py
+pytest tests/test_core/test_cache.py
+
 # With coverage
 pytest --cov=. --cov-report=term-missing
 ```
 
-Currently **105 tests** across all modules.
+Currently **116 tests** across all modules (105 existing + 3 parallel + 8 cache).
 
 ## Docker
 
@@ -353,7 +346,7 @@ Currently **105 tests** across all modules.
 docker compose up
 ```
 
-Opens `http://localhost:8000`. The web dashboard persists backtest results in a Docker volume.
+The multi-stage Dockerfile builds the React frontend with Node 20, then packages it with the Python backend. Opens `http://localhost:8000`.
 
 ## Project Structure
 
@@ -361,37 +354,38 @@ Opens `http://localhost:8000`. The web dashboard persists backtest results in a 
 trading-agent/
 ├── cli/                    # Typer command-line interface
 │   ├── main.py             # Root dispatcher (backtest, pinn, cgan, serve)
-│   ├── backtest_cmd.py     # run, compare, compare-risk
+│   ├── backtest_cmd.py     # run, compare, compare-risk (parallel)
 │   ├── cgan_cmd.py         # train, generate, simulate
 │   ├── pinn_cmd.py         # train, generate
 │   └── serve_cmd.py        # serve (uvicorn)
 ├── trading_agent/          # Core library
-│   ├── core/               # Agent state, graph, nodes, reward, schemas
+│   ├── core/               # State, graph, nodes, reward, schemas, cache
 │   ├── models/             # LLM gateway (Kilo, Mock)
-│   ├── market/             # Data sources (random walk, historical, yahoo, LOB)
-│   ├── backtest/           # Engine + metrics
+│   ├── market/             # Data sources (Polygon, simulators, LOB)
+│   ├── backtest/           # Engine + metrics + parallel runner
 │   └── config/             # Pydantic settings
-├── market_cgan/            # Conditional GAN for LOB simulation
-│   ├── models/             # Generator, Discriminator
-│   ├── data/               # LOBSTER parser, features, Polygon.io adapter
+├── market_cgan/            # Conditional GAN for market simulation
+│   ├── models/             # BarGenerator, Generator, Discriminator
+│   ├── data/               # Bar features, LOBSTER parser, Polygon.io adapter
 │   ├── training/           # Losses, trainer, physics-informed loss
-│   └── simulation/         # Exchange (order book), World Agent
+│   └── simulation/         # BarExchange, LOBExchange, WorldAgent
 ├── market_pinn/            # Physics-Informed NN for price synthesis
 │   ├── models/             # MarketPINN
 │   ├── physics/            # Black-Scholes PDE
 │   ├── training/           # Dataset, loss, trainer
 │   └── synthesis/          # Path generator
-├── web/                    # FastAPI dashboard
+├── web/                    # FastAPI backend + React frontend
+│   ├── frontend/           # Vite + React SPA (TypeScript)
+│   ├── routers/            # API + HTML route handlers
 │   ├── db/                 # SQLAlchemy models + database
-│   ├── routers/            # dashboard, backtests, models, pinn
-│   ├── templates/          # Jinja2 + HTMX
-│   └── static/             # CSS
-├── docker/                 # Dockerfile + compose
-├── tests/                  # 105 pytest tests
+│   ├── templates/          # Jinja2 templates (legacy)
+│   └── static/             # Static assets
+├── docker/                 # Multi-stage Dockerfile + compose
+├── tests/                  # 116 pytest tests
 │   ├── test_cgan/
 │   ├── test_pinn/
-│   ├── test_core/
-│   ├── test_backtest/
+│   ├── test_core/          # Includes test_cache.py
+│   ├── test_backtest/      # Includes test_parallel.py
 │   ├── test_market/
 │   ├── test_models/
 │   └── test_web/
@@ -401,12 +395,24 @@ trading-agent/
 ## Development
 
 ```bash
-# Install dev dependencies
+# Install Python dependencies
 pip install -e ".[web,pinn,dev]"
+
+# Install and build frontend
+cd web/frontend && npm ci && npm run build
+
+# Or run frontend dev server (auto-reloads on changes)
+cd web/frontend && npm run dev  # proxies /api to localhost:8000
 
 # Run tests
 pytest -v
 
-# Start web dashboard
+# Start web dashboard (serves React build at /app/*)
 trading-agent serve
 ```
+
+## Performance Notes
+
+- **Parallel backtesting:** `compare` and `compare-risk` commands run N backtests concurrently via `ThreadPoolExecutor`. With 4 workers, comparing 4 models takes ~30s instead of ~120s (LLM calls are I/O-bound).
+- **LLM response cache:** Each thread maintains its own LRU cache of recent LLM decisions. On flat or oscillating markets, ~30-50% of LLM calls are eliminated.
+- **Data fetching:** Historical prices fetched via Polygon.io aggregates. Single-symbol fetch is I/O-bound (~1-3s).

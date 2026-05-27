@@ -100,6 +100,19 @@ class PolygonDataSource:
             ))
         return bars
 
+    def fetch_aggregates_batch(
+        self,
+        specs: list[tuple[str, str, str]],
+        timespan: str = "minute",
+        max_workers: int = 4,
+    ) -> dict[str, list[Bar]]:
+        from concurrent.futures import ThreadPoolExecutor
+        def fetch_one(ticker: str, start: str, end: str) -> tuple[str, list[Bar]]:
+            return ticker, self.fetch_aggregates(ticker, start, end, timespan)
+        with ThreadPoolExecutor(max_workers=min(max_workers, len(specs))) as ex:
+            futures = {ex.submit(fetch_one, t, s, e) for t, s, e in specs}
+            return {ticker: bars for fut in futures for ticker, bars in [fut.result()]}
+
     def fetch_trades(self, ticker: str, date_str: str) -> list[dict]:
         trades = []
         raw = self.client.list_trades(ticker, timestamp=date_str)

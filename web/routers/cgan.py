@@ -112,9 +112,14 @@ def cgan_compare(
         ("Risk-Averse", multicomponent_reward),
         ("Risk-Taker", aggressive_reward),
     ]
+    from trading_agent.backtest.parallel import parallel_backtest, BacktestConfig
+    configs = [
+        BacktestConfig(price_series=price_series, llm=llm, max_steps=n_trade_steps, reward_fn=reward_fn)
+        for _, reward_fn in agents
+    ]
+    parallel_results = parallel_backtest(configs, max_workers=2)
     results = {}
-    for label, reward_fn in agents:
-        metrics = backtest_agent(price_series, llm=llm, max_steps=n_trade_steps, reward_fn=reward_fn)
+    for (label, _), metrics in zip(agents, parallel_results):
         results[label] = {k: round(v, 4) if isinstance(v, float) else v for k, v in metrics.items()}
 
     bar_data = [{"t": b.timestamp, "o": round(b.open, 2), "h": round(b.high, 2),

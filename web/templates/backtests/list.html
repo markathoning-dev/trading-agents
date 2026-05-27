@@ -10,7 +10,7 @@
     <tr>
         <td><a href="/backtests/{{ run.id }}">{{ run.id }}</a></td>
         <td>{{ run.model_name }}</td>
-        <td>{{ run.data_source.replace('yfinance:', '') }}</td>
+        <td>{{ run.data_source.split(':')[1] if ':' in run.data_source else run.data_source }}</td>
         <td>{{ run.status }}</td>
         <td>{{ "%.2f"|format(run.result.total_return * 100) if run.result else '—' }}%</td>
         <td>{{ "%.2f"|format(run.result.sharpe_ratio) if run.result else '—' }}</td>

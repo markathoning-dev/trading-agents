@@ -25,7 +25,7 @@ def start_backtest(
     max_steps: int = Form(50),
 ):
     db = SessionLocal()
-    run = BacktestRun(model_name=model_name, data_source=f"yfinance:{symbol}", config={"max_steps": max_steps}, status="pending")
+    run = BacktestRun(model_name=model_name, data_source=f"polygon:{symbol}", config={"max_steps": max_steps}, status="pending")
     db.add(run)
     db.commit()
     run_id = run.id

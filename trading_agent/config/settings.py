@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     kilo_api_base: Optional[str] = None
     anthropic_api_key: Optional[str] = None
     polygon_api_key: Optional[str] = None
+    llm_cache_size: int = 1000
+    llm_cache_enabled: bool = True
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

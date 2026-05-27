@@ -1,4 +1,4 @@
-import pandas as pd
+from trading_agent.market.polygon_market import fetch_prices
 from web.db.database import SessionLocal
 from web.db.models import BacktestRun, BacktestResult
 from trading_agent.backtest.engine import backtest_agent
@@ -12,9 +12,7 @@ def run_backtest_task(run_id: int, model_name: str, symbol: str, max_steps: int)
         run.status = "running"
         db.commit()
 
-        import yfinance as yf
-        hist = yf.Ticker(symbol).history(period="1y")
-        prices = pd.Series(hist["Close"].values)
+        prices = fetch_prices(symbol)
 
         try:
             llm = KiloGateway(model_name).get_langchain_llm()
