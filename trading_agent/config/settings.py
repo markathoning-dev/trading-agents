@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 from typing import Optional
+
 
 class Settings(BaseSettings):
     database_url: str = "sqlite:///data/trading.db"
@@ -17,4 +22,10 @@ class Settings(BaseSettings):
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
-settings = Settings()
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

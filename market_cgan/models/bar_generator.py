@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from market_cgan.data.bar import FEATURE_CLOSE
 
 
 class BarGenerator(nn.Module):
@@ -48,7 +49,7 @@ class BarGenerator(nn.Module):
         h_raw = F.softplus(self.high_head(h))
         l_raw = F.softplus(self.low_head(h))
 
-        feature_ref = features[:, 3:4] * self.ref_price
+        feature_ref = features[:, FEATURE_CLOSE:FEATURE_CLOSE+1] * self.ref_price
         ref = feature_ref.clamp(min=1.0)
 
         o = ref * (1.0 + o_raw * self.max_move)

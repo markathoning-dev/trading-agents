@@ -1,12 +1,13 @@
 import torch
 import torch.nn.functional as F
+from market_cgan.data.bar import FEATURE_OPEN, FEATURE_HIGH, FEATURE_LOW, FEATURE_CLOSE, FEATURE_VOLUME
 
 
 def hl_validity_loss(gen_bars: torch.Tensor) -> torch.Tensor:
-    o = gen_bars[:, 0]
-    h = gen_bars[:, 1]
-    l = gen_bars[:, 2]
-    c = gen_bars[:, 3]
+    o = gen_bars[:, FEATURE_OPEN]
+    h = gen_bars[:, FEATURE_HIGH]
+    l = gen_bars[:, FEATURE_LOW]
+    c = gen_bars[:, FEATURE_CLOSE]
     o_max = torch.max(o, c)
     o_min = torch.min(o, c)
     high_violation = torch.relu(o_max - h)
@@ -15,13 +16,13 @@ def hl_validity_loss(gen_bars: torch.Tensor) -> torch.Tensor:
 
 
 def volume_positivity_loss(gen_bars: torch.Tensor) -> torch.Tensor:
-    v = gen_bars[:, 4]
+    v = gen_bars[:, FEATURE_VOLUME]
     return torch.relu(-v).mean()
 
 
 def return_distribution_loss(gen_bars: torch.Tensor, real_bars: torch.Tensor) -> torch.Tensor:
-    gen_returns = torch.diff(torch.log(gen_bars[:, 3].clamp(min=1e-6)))
-    real_returns = torch.diff(torch.log(real_bars[:, 3].clamp(min=1e-6)))
+    gen_returns = torch.diff(torch.log(gen_bars[:, FEATURE_CLOSE].clamp(min=1e-6)))
+    real_returns = torch.diff(torch.log(real_bars[:, FEATURE_CLOSE].clamp(min=1e-6)))
     if gen_returns.numel() < 2 or real_returns.numel() < 2:
         return torch.tensor(0.0, device=gen_bars.device)
     gen_mean = gen_returns.mean()
@@ -35,7 +36,7 @@ def return_distribution_loss(gen_bars: torch.Tensor, real_bars: torch.Tensor) ->
 
 
 def volatility_clustering_loss(gen_bars: torch.Tensor) -> torch.Tensor:
-    returns = torch.diff(torch.log(gen_bars[:, 3].clamp(min=1e-6)))
+    returns = torch.diff(torch.log(gen_bars[:, FEATURE_CLOSE].clamp(min=1e-6)))
     if returns.numel() < 4:
         return torch.tensor(0.0, device=gen_bars.device)
     abs_ret = returns.abs()

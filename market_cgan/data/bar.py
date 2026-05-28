@@ -6,6 +6,15 @@ from dataclasses import dataclass
 from torch.utils.data import Dataset
 
 
+FEATURE_OPEN = 0
+FEATURE_HIGH = 1
+FEATURE_LOW = 2
+FEATURE_CLOSE = 3
+FEATURE_VOLUME = 4
+FEATURE_VWAP = 5
+FEATURE_DIM = 6
+
+
 @dataclass
 class Bar:
     timestamp: int

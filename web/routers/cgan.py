@@ -14,7 +14,6 @@ from market_cgan.simulation.bar_world_agent import BarWorldAgent
 from market_cgan.data.bar import Bar
 from trading_agent.backtest.engine import backtest_agent
 from trading_agent.core.reward import multicomponent_reward, aggressive_reward
-from trading_agent.core.graph import build_bar_graph
 from trading_agent.core.state import AgentState
 from trading_agent.models.gateway import KiloGateway
 from trading_agent.config.settings import settings
