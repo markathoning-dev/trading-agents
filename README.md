@@ -98,6 +98,8 @@ Key settings:
 | `LLM_CACHE_SIZE` | `1000` | Max cached LLM responses per thread |
 | `LLM_CACHE_ENABLED` | `true` | Enable LLM response deduplication |
 
+Settings are loaded via `get_settings()` (cached with `lru_cache`). The module-level `settings` singleton is still available for backward compatibility.
+
 ### Build Frontend
 
 ```bash
@@ -163,11 +165,11 @@ Then open `http://localhost:8000/app` for the React dashboard.
 
 ### Trading Agent Core (`trading_agent/`)
 
-The agent is built as a **LangGraph** with configurable node graph:
+The agent is built as a **LangGraph** with configurable node graph. A `MarketAdapter` protocol decouples market data integration from graph construction — three adapters (`PriceMarketAdapter`, `LOBMarketAdapter`, `BarMarketAdapter`) handle price-only, LOB, and OHLCV bar data respectively. Custom adapters can be passed to `build_agent_graph` directly.
 
 ```
 ┌────────────────┐
-│  Market        │  price → (from MarketDataSource)
+│  MarketAdapter │  update_state() → price/LOB/bar data
 └───────┬────────┘
         │
         ▼
@@ -195,16 +197,16 @@ The agent is built as a **LangGraph** with configurable node graph:
 |---|---|
 | `core/state.py` | `AgentState` TypedDict — cash, shares, price, history, portfolio values |
 | `core/schemas.py` | `TradeDecision`, `LimitOrder`, `MarketOrder` — Pydantic LLM output schemas |
-| `core/nodes.py` | `fetch_price`, `execute_trade`, `execute_lob_trade`, `calculate_reward` |
-| `core/graph.py` | `build_graph` (standard), `build_lob_graph` (LOB-aware), `build_bar_graph` (bar-aware) |
+| `core/nodes.py` | `apply_trade` (pure accounting), `fetch_price`, `execute_trade`, `execute_lob_trade`, `calculate_reward |
+| `core/graph.py` | `build_agent_graph` (unified), `MarketAdapter` protocol, `build_graph`/`build_lob_graph`/`build_bar_graph` (convenience wrappers) |
 | `core/reward.py` | `multicomponent_reward` (risk-averse), `aggressive_reward` (risk-taker) |
 | `core/cache.py` | `LLMResponseCache` — thread-local LRU cache deduplicating LLM calls |
 | `models/gateway.py` | `KiloGateway` — LiteLLM abstraction supporting 100+ providers |
 | `models/mock.py` | `MockLLM` / `MockGateway` — always returns HOLD for testing |
 | `market/simulators.py` | `RandomWalkMarket`, `HistoricalMarket` |
 | `market/polygon_market.py` | `fetch_prices` — OHLCV price series via Polygon.io |
-| `market/lob_source.py` | `CGANMarketSource` — bridges CGAN simulation into agent |
-| `backtest/engine.py` | `backtest_agent` — main backtesting loop |
+| `market/lob_source.py` | `CGANMarketSource` — bridges CGAN simulation into agent (duck-typed, no cross-package import) |
+| `backtest/engine.py` | `backtest_agent`, `create_initial_state`, `compute_strategy_metrics` |
 | `backtest/parallel.py` | `parallel_backtest` — N concurrent backtests via ThreadPoolExecutor |
 | `backtest/metrics.py` | `compute_sharpe`, `compute_max_drawdown` |
 
@@ -246,10 +248,10 @@ Conditional GAN that generates synthetic market data. Two modes:
 | `models/bar_generator.py` | `BarGenerator` — 6-head MLP for OHLCV bar generation |
 | `models/generator.py` | `Generator` — 4-head MLP for LOB action generation (legacy) |
 | `models/discriminator.py` | `Discriminator` — 4-layer MLP binary classifier |
-| `data/bar.py` | `Bar`, `BarFeatureExtractor`, `BarDataset` |
+| `data/bar.py` | `Bar`, `BarFeatureExtractor`, `BarDataset`, `FEATURE_OPEN`/`HIGH`/`LOW`/`CLOSE`/`VOLUME`/`VWAP` constants |
 | `data/polygon.py` | `PolygonDataSource`, `PolygonDataset` — real data via Polygon.io |
 | `data/features.py` | `MarketFeatureExtractor` — 42-dim feature vector from LOB |
-| `training/trainer.py` | `train_cgan`, `train_cgan_bar` — adversarial training loops |
+| `training/trainer.py` | `train_gan` (shared loop), `train_cgan` (LOB wrapper), `train_cgan_bar` (bar wrapper) |
 | `simulation/bar_exchange.py` | `BarExchange` — OHLCV bar accumulator |
 | `simulation/bar_world_agent.py` | `BarWorldAgent` — CGAN-driven bar simulation agent |
 | `simulation/exchange.py` | `OrderBook`, `LOBExchange` — LOB matching engine (legacy) |
@@ -338,7 +340,7 @@ pytest tests/test_core/test_cache.py
 pytest --cov=. --cov-report=term-missing
 ```
 
-Currently **116 tests** across all modules (105 existing + 3 parallel + 8 cache).
+Currently **169 tests** across all modules.
 
 ## Docker
 
@@ -381,7 +383,7 @@ trading-agent/
 │   ├── templates/          # Jinja2 templates (legacy)
 │   └── static/             # Static assets
 ├── docker/                 # Multi-stage Dockerfile + compose
-├── tests/                  # 116 pytest tests
+├── tests/                  # 169 pytest tests
 │   ├── test_cgan/
 │   ├── test_pinn/
 │   ├── test_core/          # Includes test_cache.py
