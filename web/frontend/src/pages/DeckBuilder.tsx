@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { listCards, listDecks, createDeck, deleteDeck } from '../api/cards';
 import { StrategyCard, Deck, RARITY_COLORS } from '../types/cards';
-import { StrategyCardComponent } from '../components/StrategyCard';
+import { CmdInput } from '../components/CmdInput';
+import { Btn } from '../components/Btn';
 
 export const DeckBuilder: React.FC = () => {
   const [cards, setCards] = useState<StrategyCard[]>([]);
@@ -9,7 +10,6 @@ export const DeckBuilder: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Deck builder state
   const [deckName, setDeckName] = useState('');
   const [deckId, setDeckId] = useState('');
   const [selectedCards, setSelectedCards] = useState<StrategyCard[]>([]);
@@ -29,7 +29,6 @@ export const DeckBuilder: React.FC = () => {
   const totalMana = selectedCards.reduce((sum, card) => sum + card.mana_cost, 0);
   const overBudget = totalMana > manaBudget;
   const rewardCards = selectedCards.filter((c) => c.reward_type);
-  const hasReward = rewardCards.length === 1;
 
   const validationErrors: string[] = [];
   if (overBudget) validationErrors.push(`Over mana budget: ${totalMana}/${manaBudget}`);
@@ -51,7 +50,6 @@ export const DeckBuilder: React.FC = () => {
 
   const handleSave = async () => {
     if (!isValid || !deckId || !deckName) return;
-
     setSaving(true);
     try {
       await createDeck(deckId, deckName, selectedCards.map((c) => c.id), manaBudget);
@@ -60,6 +58,7 @@ export const DeckBuilder: React.FC = () => {
       setDeckId('');
       setDeckName('');
       setSelectedCards([]);
+      setError(null);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -77,213 +76,167 @@ export const DeckBuilder: React.FC = () => {
   };
 
   if (loading) {
-    return <div style={{ color: '#9ca3af', padding: '20px' }}>Loading...</div>;
+    return (
+      <div className="py-4">
+        <p className="text-text-muted animate-flicker">Loading...</p>
+      </div>
+    );
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1 style={{ color: '#f3f4f6', marginBottom: '20px' }}>Deck Builder</h1>
+    <div className="py-4">
+      <h1 className="text-sm text-terminal-green tracking-wider mb-6">DECK BUILDER</h1>
 
       {error && (
-        <div style={{ background: '#7f1d1d', color: '#fecaca', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
+        <div className="bg-terminal-red/10 border border-terminal-red/30 text-terminal-red p-3 rounded font-mono text-[12px] mb-4">
           {error}
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        {/* Left: Card Collection */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Card Pool */}
         <div>
-          <h2 style={{ color: '#d1d5db', marginBottom: '12px' }}>Available Cards</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '600px', overflowY: 'auto' }}>
-            {cards.map((card) => (
-              <div
-                key={card.id}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
-              >
-                <StrategyCardComponent card={card} compact onClick={addCard} />
-                <button
-                  onClick={() => addCard(card)}
-                  disabled={!!selectedCards.find((c) => c.id === card.id)}
-                  style={{
-                    background: selectedCards.find((c) => c.id === card.id) ? '#374151' : '#3b82f6',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    cursor: selectedCards.find((c) => c.id === card.id) ? 'not-allowed' : 'pointer',
-                    opacity: selectedCards.find((c) => c.id === card.id) ? 0.5 : 1,
-                  }}
+          <div className="text-[10px] text-text-muted uppercase tracking-[0.2em] mb-3">
+            Available Cards
+          </div>
+          <div className="space-y-1 max-h-[600px] overflow-y-auto border border-screen-border rounded bg-screen-elevated p-2">
+            {cards.map((card) => {
+              const inDeck = !!selectedCards.find((c) => c.id === card.id);
+              const color = RARITY_COLORS[card.rarity];
+              return (
+                <div
+                  key={card.id}
+                  className="flex items-center justify-between p-2 hover:bg-[#0d0d0d] transition-colors rounded"
                 >
-                  Add
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-text-primary text-[13px] truncate">{card.name}</span>
+                    <span className="text-terminal-cyan text-[12px] shrink-0">
+                      {'\u26A1'.repeat(card.mana_cost)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => addCard(card)}
+                    disabled={inDeck}
+                    className={`font-mono text-[11px] px-2 py-0.5 border transition-colors shrink-0 ml-2 ${
+                      inDeck
+                        ? 'border-screen-border text-text-dim cursor-not-allowed'
+                        : 'border-terminal-green text-terminal-green hover:bg-terminal-green/10 cursor-pointer'
+                    }`}
+                  >
+                    {inDeck ? 'Added' : '+'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Right: Deck Builder */}
+        {/* Right: Active Deck */}
         <div>
-          <h2 style={{ color: '#d1d5db', marginBottom: '12px' }}>Your Deck</h2>
+          <div className="text-[10px] text-text-muted uppercase tracking-[0.2em] mb-3">
+            Active Deck
+          </div>
 
-          {/* Deck Info */}
-          <div style={{ background: '#1f2937', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
-            <div style={{ marginBottom: '12px' }}>
-              <input
-                type="text"
-                placeholder="Deck ID (e.g., my-deck)"
-                value={deckId}
-                onChange={(e) => setDeckId(e.target.value)}
-                style={{
-                  background: '#374151',
-                  border: 'none',
-                  color: '#f3f4f6',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  width: '100%',
-                  marginBottom: '8px',
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Deck Name"
-                value={deckName}
-                onChange={(e) => setDeckName(e.target.value)}
-                style={{
-                  background: '#374151',
-                  border: 'none',
-                  color: '#f3f4f6',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  width: '100%',
-                }}
-              />
-            </div>
+          <div className="bg-screen-elevated border border-screen-border rounded p-4 space-y-4">
+            <CmdInput
+              label="deck_id"
+              value={deckId}
+              onChange={(e) => setDeckId(e.target.value)}
+              placeholder="my-deck"
+            />
+            <CmdInput
+              label="name"
+              value={deckName}
+              onChange={(e) => setDeckName(e.target.value)}
+              placeholder="Deck Name"
+            />
 
-            {/* Mana Budget */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <span style={{ color: '#9ca3af' }}>Mana Budget:</span>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={manaBudget}
-                onChange={(e) => setManaBudget(Number(e.target.value))}
-                style={{
-                  background: '#374151',
-                  border: 'none',
-                  color: '#f3f4f6',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  width: '80px',
-                }}
-              />
-              <span style={{ color: overBudget ? '#ef4444' : '#10b981' }}>
+            <CmdInput
+              label="mana"
+              value={manaBudget}
+              onChange={(e) => setManaBudget(Number(e.target.value))}
+              type="number"
+            />
+            <div className="text-[13px] font-mono">
+              <span className={overBudget ? 'text-terminal-red' : 'text-terminal-green'}>
                 {totalMana}/{manaBudget} mana
               </span>
             </div>
 
-            {/* Validation */}
             {validationErrors.length > 0 && (
-              <div style={{ color: '#ef4444', fontSize: '12px' }}>
+              <div className="text-terminal-red text-[12px] space-y-0.5 font-mono">
                 {validationErrors.map((err, i) => (
-                  <div key={i}>⚠ {err}</div>
+                  <div key={i}>{'\u26A0'} {err}</div>
                 ))}
               </div>
             )}
+
+            <div className="space-y-1">
+              {selectedCards.map((card) => {
+                const color = RARITY_COLORS[card.rarity];
+                return (
+                  <div
+                    key={card.id}
+                    className="flex items-center justify-between bg-screen-bg border border-screen-border rounded p-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="text-text-primary text-[13px] truncate">{card.name}</span>
+                      <span className="text-terminal-cyan text-[12px] shrink-0">
+                        {'\u26A1'.repeat(card.mana_cost)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeCard(card.id)}
+                      className="text-terminal-red hover:bg-terminal-red/10 px-1 cursor-pointer shrink-0 ml-2"
+                    >
+                      {'\u2715'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <Btn onClick={handleSave} disabled={!isValid || !deckId || !deckName} loading={saving}>
+              Save Deck
+            </Btn>
           </div>
 
-          {/* Selected Cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-            {selectedCards.map((card) => (
-              <div
-                key={card.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  background: '#1f2937',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <span style={{ color: '#f3f4f6' }}>{card.name}</span>
-                  <span style={{ color: RARITY_COLORS[card.rarity], marginLeft: '8px', fontSize: '12px' }}>
-                    {card.rarity}
-                  </span>
-                </div>
-                <span style={{ color: '#60a5fa' }}>⚡{card.mana_cost}</span>
-                <button
-                  onClick={() => removeCard(card.id)}
-                  style={{
-                    background: '#7f1d1d',
-                    color: '#fecaca',
-                    border: 'none',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  ✕
-                </button>
+          {decks.length > 0 && (
+            <div className="mt-6">
+              <div className="text-[10px] text-text-muted uppercase tracking-[0.2em] mb-3">
+                Saved Decks
               </div>
-            ))}
-          </div>
-
-          {/* Save Button */}
-          <button
-            onClick={handleSave}
-            disabled={!isValid || !deckId || !deckName || saving}
-            style={{
-              background: isValid && deckId && deckName ? '#10b981' : '#374151',
-              color: '#fff',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '8px',
-              cursor: isValid && deckId && deckName ? 'pointer' : 'not-allowed',
-              width: '100%',
-            }}
-          >
-            {saving ? 'Saving...' : 'Save Deck'}
-          </button>
-
-          {/* Existing Decks */}
-          <h3 style={{ color: '#d1d5db', marginTop: '24px', marginBottom: '12px' }}>Saved Decks</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {decks.map((deck) => (
-              <div
-                key={deck.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: '#1f2937',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                }}
-              >
-                <div>
-                  <span style={{ color: '#f3f4f6' }}>{deck.name}</span>
-                  <span style={{ color: '#6b7280', marginLeft: '8px', fontSize: '12px' }}>
-                    {deck.card_ids.length} cards
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleDelete(deck.id)}
-                  style={{
-                    background: '#7f1d1d',
-                    color: '#fecaca',
-                    border: 'none',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Delete
-                </button>
+              <div className="space-y-1">
+                {decks.map((deck) => (
+                  <div
+                    key={deck.id}
+                    className="flex items-center justify-between bg-screen-elevated border border-screen-border rounded p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-text-primary text-[13px]">{deck.name}</span>
+                      <span className="text-text-dim text-[11px]">
+                        {deck.card_ids.length} cards
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleDelete(deck.id)}
+                      className="text-terminal-red text-[12px] hover:bg-terminal-red/10 px-2 py-0.5 cursor-pointer font-mono"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

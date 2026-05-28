@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-terminal-green: #00ff41;
+  --color-terminal-amber: #ffb000;
+  --color-terminal-red: #ff3333;
+  --color-terminal-cyan: #00d4ff;
+  --color-terminal-gold: #ffd700;
+  --color-screen-bg: #0a0a0a;
+  --color-screen-elevated: #0f0f0f;
+  --color-screen-border: #1a1a1a;
+  --color-screen-border-hi: #2a2a2a;
+  --color-text-primary: #e0e0e0;
+  --color-text-muted: #666666;
+  --color-text-dim: #333333;
+
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--color-screen-bg);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-terminal-green) 30%, transparent);
+    color: var(--color-terminal-green);
+  }
+}
+
+@utility bg-grid {
+  background-image: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 2px var(--color-terminal-green); }
+  50% { box-shadow: 0 0 8px var(--color-terminal-green); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes slide-down {
+  from { max-height: 0; opacity: 0; }
+  to { max-height: 500px; opacity: 1; }
+}
+
+@utility animate-flicker {
+  animation: flicker 2s ease-in-out infinite;
+}
+
+@utility animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@utility animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+@utility animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}

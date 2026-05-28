@@ -57,7 +57,7 @@ LLM-powered trading agent with LangGraph orchestration, backtesting, PINN and CG
 - **Polygon.io Data** — Historical OHLCV aggregates and NBBO quotes via Polygon.io. No yfinance dependency.
 - **CGAN Market Simulator** — Conditional GAN that learns market dynamics from real data, generates synthetic OHLCV bars or LOB sequences
 - **PINN Market Simulator** — Physics-Informed Neural Network constrained by Black-Scholes PDE for synthetic price path generation
-- **Web Dashboard** — React SPA (Vite + TypeScript) with FastAPI JSON backend. Deployable as static files independently.
+- **Web Dashboard** — Terminal-themed React SPA (Vite + TypeScript + Tailwind CSS) with FastAPI JSON backend. Data-dense Bloomberg-style interface with monospace typography, green-on-black phosphor glow, interactive charts, and sortable data tables. Deployable as static files independently.
 - **Docker Deployment** — Multi-stage Dockerfile builds frontend + backend, one-command startup
 
 ## Quick Start
@@ -103,6 +103,8 @@ Key settings:
 Settings are loaded via `get_settings()` (cached with `lru_cache`). The module-level `settings` singleton is still available for backward compatibility.
 
 ### Build Frontend
+
+The dashboard uses **Tailwind CSS v4** with a custom terminal theme (green-on-black monospace, phosphor glow accents) and **lightweight-charts** for interactive portfolio visualizations.
 
 ```bash
 cd web/frontend && npm ci && npm run build
@@ -364,9 +366,30 @@ PDE constraint is the **Black-Scholes equation**:
 
 ### Web Dashboard (`web/`)
 
-FastAPI JSON API + React SPA (Vite + TypeScript):
+FastAPI JSON API + React SPA (Vite + TypeScript + Tailwind CSS v4):
+
+The UI follows a **trading-floor terminal** aesthetic — dark background, green phosphor accents, monospace typography throughout. Features include:
+
+- **Command Bar** — Fixed top navigation with terminal-green active tab state and live clock
+- **TerminalTable** — Sortable, expandable data tables with color-coded values (green = gain, red = loss)
+- **StatCards** — KPI tiles with embedded SVG sparklines
+- **Interactive Charts** — lightweight-charts integration for portfolio value curves with buy/sell markers
+- **Strategy Cards** — MTG-inspired card components with rarity borders, mana pips, and stat bars
+- **Hybrid views** — Card Collection supports both data-table and grid (card tile) layouts
 
 ```
+Shared components (web/frontend/src/components/):
+  CmdBar.tsx           → Top navigation bar
+  TickerBar.tsx        → Live market data marquee strip
+  TerminalTable.tsx    → Sortable data table with expandable rows
+  Sparkline.tsx        → Inline SVG mini chart (zero dependencies)
+  StatCard.tsx         → KPI tile with label, value, sparkline
+  StatusBadge.tsx      → Color-coded status indicator dot
+  CmdInput.tsx         → Terminal-style inline input ("> prompt:")
+  Btn.tsx              → Button with primary/danger/ghost variants
+  Modal.tsx            → Overlay modal with backdrop blur
+  StrategyCard.tsx     → MTG-style card with rarity glow and stat bars
+
 JSON API endpoints (FastAPI):
 /api/dashboard          → recent backtest runs
 /api/backtests          → all runs
@@ -383,13 +406,13 @@ JSON API endpoints (FastAPI):
 /api/pinn/models        → trained PINN models
 
 React SPA routes (Vite, served at /app/*):
-/app                    → dashboard (recent runs)
-/app/backtests          → list all runs
-/app/backtests/new      → new backtest form (deck selector)
-/app/backtests/{id}     → run detail
-/app/cards              → card collection with filters
-/app/decks              → deck builder with mana validation
-/app/models/compare     → model comparison
+/app                    → dashboard with stat cards and recent runs table
+/app/backtests          → all runs (sortable, color-coded)
+/app/backtests/new      → new backtest form with symbol chips
+/app/backtests/{id}     → run detail with portfolio chart and trade log
+/app/cards              → card collection (table/grid toggle, rarity filters)
+/app/decks              → deck builder with mana budget validation
+/app/models/compare     → model comparison with bar chart
 /app/pinn/train         → PINN training form
 /app/pinn/generate      → PINN generation form
 ```
@@ -467,7 +490,12 @@ trading-agent/
 │   ├── training/           # Dataset, loss, trainer
 │   └── synthesis/          # Path generator
 ├── web/                    # FastAPI backend + React frontend
-│   ├── frontend/           # Vite + React SPA (TypeScript)
+│   ├── frontend/           # Vite + React SPA (TypeScript + Tailwind CSS v4)
+│   │   └── src/
+│   │       ├── components/ # CmdBar, TerminalTable, Sparkline, StatCard, etc.
+│   │       ├── pages/      # 9 page components (dashboard, backtests, cards, etc.)
+│   │       ├── api/        # API client + cards endpoints
+│   │       └── types/      # TypeScript type definitions
 │   ├── routers/            # API + HTML route handlers
 │   ├── db/                 # SQLAlchemy models + database
 │   ├── templates/          # Jinja2 templates (legacy)
