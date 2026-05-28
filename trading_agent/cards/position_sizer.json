@@ -1,0 +1,17 @@
+{
+  "id": "position-sizer",
+  "name": "Position Sizer",
+  "rarity": "common",
+  "mana_cost": 1,
+  "description": "Limits position size to prevent over-concentration.",
+  "flavor_text": "Never bet the farm.",
+  "stats": {
+    "risk_tolerance": 0.3,
+    "volatility_preference": 0.3,
+    "drawdown_penalty": 0.7,
+    "trade_frequency": 0.5
+  },
+  "reward_type": null,
+  "nodes": ["position_sizer"],
+  "prompt_modifier": "Size positions conservatively. Never allocate more than 50% of portfolio to a single position."
+}

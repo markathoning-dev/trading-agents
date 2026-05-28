@@ -7,6 +7,8 @@ import { NewBacktest } from './pages/NewBacktest'
 import { ModelCompare } from './pages/ModelCompare'
 import { PinnTrain } from './pages/PinnTrain'
 import { PinnGenerate } from './pages/PinnGenerate'
+import { CardCollection } from './pages/CardCollection'
+import { DeckBuilder } from './pages/DeckBuilder'
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
           <Route path="/app/models/compare" element={<ModelCompare />} />
           <Route path="/app/pinn/train" element={<PinnTrain />} />
           <Route path="/app/pinn/generate" element={<PinnGenerate />} />
+          <Route path="/app/cards" element={<CardCollection />} />
+          <Route path="/app/decks" element={<DeckBuilder />} />
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>
       </Layout>

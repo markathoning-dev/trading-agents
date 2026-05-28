@@ -1,0 +1,17 @@
+{
+  "id": "stop-loss-sentinel",
+  "name": "Stop-Loss Sentinel",
+  "rarity": "common",
+  "mana_cost": 1,
+  "description": "Guards against catastrophic drawdown. Forces exit at 10% loss.",
+  "flavor_text": "The wall between you and ruin.",
+  "stats": {
+    "risk_tolerance": 0.2,
+    "volatility_preference": 0.2,
+    "drawdown_penalty": 0.9,
+    "trade_frequency": 0.3
+  },
+  "reward_type": null,
+  "nodes": ["stop_loss_sentinel"],
+  "prompt_modifier": "Respect stop-losses. Never let a losing position run beyond 10% drawdown."
+}

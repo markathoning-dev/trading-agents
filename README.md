@@ -29,10 +29,11 @@ LLM-powered trading agent with LangGraph orchestration, backtesting, PINN and CG
    │  │ Reward │  │          │  │                │    │
    │  │ Cache  │  │          │  │                │    │
    │  └────────┘  └──────────┘  └────────────────┘    │
-   │  ┌─────────────────────────────────┐              │
-   │  │     Backtest Engine + Parallel  │              │
-   │  │     + Metrics + LLM Cache      │              │
-   │  └─────────────────────────────────┘              │
+   │  ┌────────────┐  ┌────────────────────────────┐   │
+   │  │  Strategy  │  │  Backtest Engine + Parallel │   │
+   │  │   Cards    │  │  + Metrics + LLM Cache     │   │
+   │  │  + Nodes   │  │                            │   │
+   │  └────────────┘  └────────────────────────────┘   │
    │  ┌─────────────────────────────────┐              │
    │  │   Config (pydantic)             │              │
    │  └─────────────────────────────────┘              │
@@ -49,6 +50,7 @@ LLM-powered trading agent with LangGraph orchestration, backtesting, PINN and CG
 ## Features
 
 - **LLM Agent** — LangGraph agent that decides BUY/SELL/HOLD using any LLM provider via LiteLLM
+- **Strategy Cards** — MTG-inspired card system for composing trading strategies with mana budgets, rarity, and trade-offs
 - **Multi-Provider LLM** — Kilo API, OpenAI, Anthropic, or any LiteLLM-supported provider
 - **Reward Functions** — Risk-averse (`multicomponent_reward` with drawdown penalty) and risk-taker (`aggressive_reward` with volatility bonus)
 - **Parallel Backtesting** — Compare N models concurrently using `ThreadPoolExecutor`. LLM response cache avoids repeat calls on identical market states (thread-local, LRU eviction).
@@ -118,11 +120,36 @@ trading-agent --help
 # Run a single backtest (requires POLYGON_API_KEY)
 trading-agent backtest run --symbol AAPL --steps 50
 
+# Run a backtest with a strategy deck
+trading-agent backtest run --symbol AAPL --deck aggro-deck --steps 50
+
 # Compare multiple models side-by-side (parallel, ~4x faster)
 trading-agent backtest compare --symbol AAPL --models "gpt-4o-mini,claude-sonnet" --workers 4
 
+# Compare multiple decks
+trading-agent backtest compare-decks --symbol AAPL --decks "aggro-deck,control-deck" --workers 2
+
 # Compare risk-averse vs risk-taker (parallel)
 trading-agent backtest compare-risk --symbol AAPL --steps 3600 --workers 2
+```
+
+### Strategy Cards Commands
+
+```bash
+# List all available strategy cards
+trading-agent cards list
+
+# Show detailed card info with stat bars
+trading-agent cards show momentum-rider
+
+# List saved decks
+trading-agent cards deck-list
+
+# Create a new deck
+trading-agent cards deck-create --id aggro --name "Aggro" --cards "momentum-rider,stop-loss-sentinel,position-sizer" --mana 10
+
+# Validate a deck
+trading-agent cards deck-validate aggro
 ```
 
 ### CGAN Commands
@@ -198,9 +225,15 @@ The agent is built as a **LangGraph** with configurable node graph. A `MarketAda
 | `core/state.py` | `AgentState` TypedDict — cash, shares, price, history, portfolio values |
 | `core/schemas.py` | `TradeDecision`, `LimitOrder`, `MarketOrder` — Pydantic LLM output schemas |
 | `core/nodes.py` | `apply_trade` (pure accounting), `fetch_price`, `execute_trade`, `execute_lob_trade`, `calculate_reward |
-| `core/graph.py` | `build_agent_graph` (unified), `MarketAdapter` protocol, `build_graph`/`build_lob_graph`/`build_bar_graph` (convenience wrappers) |
+| `core/graph.py` | `build_agent_graph` (unified, deck-aware), `MarketAdapter` protocol, `build_graph`/`build_lob_graph`/`build_bar_graph` (convenience wrappers) |
 | `core/reward.py` | `multicomponent_reward` (risk-averse), `aggressive_reward` (risk-taker) |
 | `core/cache.py` | `LLMResponseCache` — thread-local LRU cache deduplicating LLM calls |
+| `cards/registry.py` | `CardRegistry` — loads JSON card definitions, provides `get_card`/`list_cards` |
+| `cards/deck.py` | `Deck` — validation, mana budget, card composition, prompt modifier aggregation |
+| `nodes/registry.py` | `StrategyNode` protocol, `@register_node` decorator, `NODE_REGISTRY` dict |
+| `nodes/pre_trade.py` | `MomentumAnalyzer`, `ReversionAnalyzer`, `VolatilityAnalyzer`, `HoldReinforcer` |
+| `nodes/post_trade.py` | `StopLossSentinel`, `PositionSizer`, `TrendFilter`, `PanicSell` |
+| `nodes/reward.py` | `VolatilityReward`, `DrawdownImmune` — custom reward node implementations |
 | `models/gateway.py` | `KiloGateway` — LiteLLM abstraction supporting 100+ providers |
 | `models/mock.py` | `MockLLM` / `MockGateway` — always returns HOLD for testing |
 | `market/simulators.py` | `RandomWalkMarket`, `HistoricalMarket` |
@@ -223,6 +256,50 @@ reward = profit − λ_drawdown × max(0, peak − new_value) − trade_cost
 ```
 reward = profit + λ_volatility × |profit| − trade_cost
 ```
+
+### Strategy Cards (`trading_agent/cards/`, `trading_agent/nodes/`)
+
+MTG-inspired card system for composing trading strategies. Each card encodes a strategy with stats, rarity, mana cost, and custom graph nodes.
+
+**How it works:**
+
+1. Cards are JSON files with metadata (name, rarity, stats) and references to Python node implementations
+2. Players build **decks** of cards within a mana budget (default 10)
+3. Cards can inject **pre_trade** nodes (analyze before LLM decides), **post_trade** nodes (filter/veto trades), or **reward** nodes (custom reward calculation)
+4. All card prompt modifiers are concatenated into the LLM system prompt
+
+```
+Default graph:
+  update_market → decide_and_trade → calculate_reward → loop
+
+Deck-assembled graph:
+  update_market → [pre_trade nodes] → decide_and_trade → [post_trade nodes] → [reward node] → loop
+```
+
+**Starter Cards (8):**
+
+| Card | Rarity | Mana | Nodes | Reward |
+|---|---|---|---|---|
+| Momentum Rider | Rare | 3 | `momentum_analyzer` | aggressive |
+| Mean Reversion Mage | Rare | 3 | `reversion_analyzer` | multicomponent |
+| Volatility Vampire | Epic | 4 | `volatility_analyzer`, `volatility_reward` | custom |
+| Stop-Loss Sentinel | Common | 1 | `stop_loss_sentinel` | — |
+| Position Sizer | Common | 1 | `position_sizer` | — |
+| Trend Filter | Common | 2 | `trend_filter` | — |
+| Diamond Hands | Legendary | 5 | `hold_reinforcer`, `drawdown_immune` | aggressive |
+| Paper Hands | Common | 1 | `panic_sell` | — |
+
+**Key files:**
+
+| File | Purpose |
+|---|---|
+| `cards/*.json` | Card definitions with stats, rarity, mana cost, flavor text |
+| `cards/registry.py` | `CardRegistry` singleton, loads all JSON cards at startup |
+| `cards/deck.py` | `Deck` class with validation, mana budget, card composition |
+| `nodes/registry.py` | `StrategyNode` protocol, `@register_node` decorator, `NODE_REGISTRY` |
+| `nodes/pre_trade.py` | `MomentumAnalyzer`, `ReversionAnalyzer`, `VolatilityAnalyzer`, `HoldReinforcer` |
+| `nodes/post_trade.py` | `StopLossSentinel`, `PositionSizer`, `TrendFilter`, `PanicSell` |
+| `nodes/reward.py` | `VolatilityReward`, `DrawdownImmune` |
 
 ### CGAN Market Simulator (`market_cgan/`)
 
@@ -294,16 +371,24 @@ JSON API endpoints (FastAPI):
 /api/dashboard          → recent backtest runs
 /api/backtests          → all runs
 /api/backtests/{id}     → run detail with steps
-/api/backtests/new      → start new backtest
+/api/backtests/new      → start new backtest (supports deck_id)
 /api/backtests/compare  → parallel compare N models
 /api/models/compare     → aggregated model comparison
+/api/cards              → list all strategy cards
+/api/cards/{id}         → card detail
+/api/decks              → list saved decks
+/api/decks/{id}         → deck detail with resolved cards
+/api/decks (POST)       → create deck with validation
+/api/decks/{id} (DELETE)→ delete deck
 /api/pinn/models        → trained PINN models
 
 React SPA routes (Vite, served at /app/*):
 /app                    → dashboard (recent runs)
 /app/backtests          → list all runs
-/app/backtests/new      → new backtest form
+/app/backtests/new      → new backtest form (deck selector)
 /app/backtests/{id}     → run detail
+/app/cards              → card collection with filters
+/app/decks              → deck builder with mana validation
 /app/models/compare     → model comparison
 /app/pinn/train         → PINN training form
 /app/pinn/generate      → PINN generation form
@@ -327,20 +412,22 @@ Jinja2 templates still available at legacy routes (`/`, `/backtests`, etc.) for 
 pytest
 
 # Specific areas
+pytest tests/test_cards/
 pytest tests/test_cgan/
 pytest tests/test_pinn/
 pytest tests/test_core/
 pytest tests/test_backtest/
 
-# New tests
-pytest tests/test_backtest/test_parallel.py
-pytest tests/test_core/test_cache.py
+# Card system tests
+pytest tests/test_cards/test_registry.py
+pytest tests/test_cards/test_nodes.py
+pytest tests/test_cards/test_deck.py
 
 # With coverage
 pytest --cov=. --cov-report=term-missing
 ```
 
-Currently **169 tests** across all modules.
+Currently **209 tests** across all modules.
 
 ## Docker
 
@@ -355,13 +442,16 @@ The multi-stage Dockerfile builds the React frontend with Node 20, then packages
 ```
 trading-agent/
 ├── cli/                    # Typer command-line interface
-│   ├── main.py             # Root dispatcher (backtest, pinn, cgan, serve)
-│   ├── backtest_cmd.py     # run, compare, compare-risk (parallel)
+│   ├── main.py             # Root dispatcher (backtest, pinn, cgan, serve, cards)
+│   ├── backtest_cmd.py     # run, compare, compare-risk, compare-decks (parallel)
+│   ├── cards_cmd.py        # cards list/show, deck list/create/validate
 │   ├── cgan_cmd.py         # train, generate, simulate
 │   ├── pinn_cmd.py         # train, generate
 │   └── serve_cmd.py        # serve (uvicorn)
 ├── trading_agent/          # Core library
 │   ├── core/               # State, graph, nodes, reward, schemas, cache
+│   ├── cards/              # Strategy cards: JSON defs, registry, deck model
+│   ├── nodes/              # Pluggable graph nodes: pre_trade, post_trade, reward
 │   ├── models/             # LLM gateway (Kilo, Mock)
 │   ├── market/             # Data sources (Polygon, simulators, LOB)
 │   ├── backtest/           # Engine + metrics + parallel runner
@@ -383,7 +473,8 @@ trading-agent/
 │   ├── templates/          # Jinja2 templates (legacy)
 │   └── static/             # Static assets
 ├── docker/                 # Multi-stage Dockerfile + compose
-├── tests/                  # 169 pytest tests
+├── tests/                  # 209 pytest tests
+│   ├── test_cards/         # Card registry, nodes, deck validation
 │   ├── test_cgan/
 │   ├── test_pinn/
 │   ├── test_core/          # Includes test_cache.py

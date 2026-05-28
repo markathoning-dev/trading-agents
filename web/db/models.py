@@ -3,6 +3,31 @@ from sqlalchemy import Column, Integer, Float, String, DateTime, JSON, ForeignKe
 from sqlalchemy.orm import relationship
 from web.db.database import Base
 
+
+class StrategyCard(Base):
+    __tablename__ = "strategy_cards"
+    id = Column(String(50), primary_key=True)
+    name = Column(String(100), nullable=False)
+    rarity = Column(String(20), nullable=False)
+    mana_cost = Column(Integer, nullable=False)
+    description = Column(String(500))
+    flavor_text = Column(String(500))
+    stats = Column(JSON, default={})
+    reward_type = Column(String(50))
+    nodes = Column(JSON, default=[])
+    prompt_modifier = Column(String(1000))
+
+
+class Deck(Base):
+    __tablename__ = "decks"
+    id = Column(String(50), primary_key=True)
+    name = Column(String(100), nullable=False)
+    card_ids = Column(JSON, default=[])
+    mana_budget = Column(Integer, default=10)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    runs = relationship("BacktestRun", back_populates="deck")
+
+
 class BacktestRun(Base):
     __tablename__ = "backtest_runs"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -10,8 +35,10 @@ class BacktestRun(Base):
     data_source = Column(String(100), default="random")
     config = Column(JSON, default={})
     status = Column(String(20), default="pending")
+    deck_id = Column(String(50), ForeignKey("decks.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     result = relationship("BacktestResult", uselist=False, back_populates="run")
+    deck = relationship("Deck", back_populates="runs")
 
 class BacktestResult(Base):
     __tablename__ = "backtest_results"

@@ -25,6 +25,7 @@ def run_backtest_core(
     max_steps: int,
     fee_rate: float = 0.001,
     risk_lambda: float = 0.1,
+    deck=None,
 ) -> BacktestJobResult:
     try:
         llm = KiloGateway(model_name).get_langchain_llm()
@@ -38,14 +39,16 @@ def run_backtest_core(
         max_steps=min(max_steps, len(prices)),
         fee_rate=fee_rate,
         risk_lambda=risk_lambda,
+        deck=deck,
     )
     return BacktestJobResult(metrics=metrics, llm_used=llm_label)
 
 
-def run_backtest_task(run_id: int, model_name: str, symbol: str, max_steps: int):
+def run_backtest_task(run_id: int, model_name: str, symbol: str, max_steps: int, deck_id: str = None):
     from web.db.database import SessionLocal
-    from web.db.models import BacktestRun, BacktestResult
+    from web.db.models import BacktestRun, BacktestResult, Deck
     from trading_agent.market.polygon_market import fetch_prices
+    from trading_agent.cards.deck import Deck as DeckModel
 
     db = SessionLocal()
     try:
@@ -53,8 +56,19 @@ def run_backtest_task(run_id: int, model_name: str, symbol: str, max_steps: int)
         run.status = "running"
         db.commit()
 
+        deck = None
+        if deck_id:
+            deck_record = db.query(Deck).filter(Deck.id == deck_id).first()
+            if deck_record:
+                deck = DeckModel(
+                    id=deck_record.id,
+                    name=deck_record.name,
+                    card_ids=deck_record.card_ids,
+                    mana_budget=deck_record.mana_budget,
+                )
+
         prices = fetch_prices(symbol)
-        result = run_backtest_core(prices, model_name, max_steps)
+        result = run_backtest_core(prices, model_name, max_steps, deck=deck)
 
         db_result = BacktestResult(
             run_id=run_id,

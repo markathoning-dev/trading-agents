@@ -6,6 +6,8 @@ const links = [
   { to: '/app/backtests/new', label: 'New Run' },
   { to: '/app/models/compare', label: 'Compare Models' },
   { to: '/app/pinn/train', label: 'Train PINN' },
+  { to: '/app/cards', label: 'Cards' },
+  { to: '/app/decks', label: 'Deck Builder' },
 ]
 
 export function Layout({ children }: { children: React.ReactNode }) {

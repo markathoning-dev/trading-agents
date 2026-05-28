@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import pandas as pd
 from trading_agent.backtest.engine import backtest_agent
@@ -18,6 +18,7 @@ class BacktestConfig:
     risk_lambda: float = 0.1
     max_steps: int | None = None
     reward_fn: Callable = multicomponent_reward
+    deck: Any = None
 
 
 def parallel_backtest(

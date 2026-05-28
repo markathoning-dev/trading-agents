@@ -1,0 +1,17 @@
+{
+  "id": "mean-reversion-mage",
+  "name": "Mean Reversion Mage",
+  "rarity": "rare",
+  "mana_cost": 3,
+  "description": "Profits from price returning to the mean. Buys dips, sells rips.",
+  "flavor_text": "What goes up must come down.",
+  "stats": {
+    "risk_tolerance": 0.4,
+    "volatility_preference": 0.3,
+    "drawdown_penalty": 0.6,
+    "trade_frequency": 0.6
+  },
+  "reward_type": "multicomponent",
+  "nodes": ["reversion_analyzer"],
+  "prompt_modifier": "You are a contrarian mean-reversion trader. When price deviates significantly from its recent mean, expect reversion. Buy oversold, sell overbought."
+}

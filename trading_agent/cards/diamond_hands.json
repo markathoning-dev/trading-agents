@@ -1,0 +1,17 @@
+{
+  "id": "diamond-hands",
+  "name": "Diamond Hands",
+  "rarity": "legendary",
+  "mana_cost": 5,
+  "description": "Holds through any drawdown. Never sells at a loss.",
+  "flavor_text": "Apes together strong.",
+  "stats": {
+    "risk_tolerance": 1.0,
+    "volatility_preference": 0.9,
+    "drawdown_penalty": 0.0,
+    "trade_frequency": 0.1
+  },
+  "reward_type": "aggressive",
+  "nodes": ["hold_reinforcer", "drawdown_immune"],
+  "prompt_modifier": "You have diamond hands. Never sell at a loss. Hold through drawdowns with unwavering conviction. Buy more on dips."
+}

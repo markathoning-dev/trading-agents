@@ -6,12 +6,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from web.db.database import get_db, SessionLocal
-from web.db.models import BacktestRun, BacktestResult, BacktestStep, PinnModel
+from web.db.models import BacktestRun, BacktestResult, BacktestStep, PinnModel, Deck
 from web.tasks import run_backtest_task
 from trading_agent.backtest.parallel import parallel_backtest, BacktestConfig
 from trading_agent.models.gateway import KiloGateway
 from trading_agent.models.mock import MockGateway
 from trading_agent.market.polygon_market import fetch_prices
+from trading_agent.cards.registry import list_cards, get_card
+from trading_agent.cards.deck import Deck as DeckModel
 
 router = APIRouter()
 
@@ -23,6 +25,7 @@ def _serialize_run(run: BacktestRun) -> dict:
         "data_source": run.data_source,
         "config": run.config,
         "status": run.status,
+        "deck_id": run.deck_id,
         "created_at": run.created_at.isoformat() if run.created_at else None,
         "result": {
             "final_portfolio_value": run.result.final_portfolio_value,
@@ -74,18 +77,20 @@ def start_backtest_api(
     model_name: str = Form(...),
     symbol: str = Form("AAPL"),
     max_steps: int = Form(50),
+    deck_id: str = Form(None),
 ):
     db = SessionLocal()
     run = BacktestRun(
         model_name=model_name, data_source=f"polygon:{symbol}",
         config={"max_steps": max_steps}, status="pending",
+        deck_id=deck_id,
     )
     db.add(run)
     db.commit()
     run_id = run.id
     db.close()
     threading.Thread(
-        target=run_backtest_task, args=(run_id, model_name, symbol, max_steps),
+        target=run_backtest_task, args=(run_id, model_name, symbol, max_steps, deck_id),
         daemon=True,
     ).start()
     return {"run_id": run_id, "status": "started"}
@@ -192,3 +197,114 @@ def pinn_generate_form_api(db: Session = Depends(get_db)):
             {"name": "steps", "type": "number", "default": 252},
         ],
     }
+
+
+@router.get("/cards")
+def list_cards_api():
+    cards = list_cards()
+    return [c.to_dict() for c in cards]
+
+
+@router.get("/cards/{card_id}")
+def get_card_api(card_id: str):
+    card = get_card(card_id)
+    if card is None:
+        return JSONResponse({"error": "Card not found"}, status_code=404)
+    return card.to_dict()
+
+
+@router.get("/decks")
+def list_decks_api(db: Session = Depends(get_db)):
+    decks = db.query(Deck).order_by(Deck.created_at.desc()).all()
+    return [
+        {
+            "id": d.id,
+            "name": d.name,
+            "card_ids": d.card_ids,
+            "mana_budget": d.mana_budget,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        }
+        for d in decks
+    ]
+
+
+@router.get("/decks/{deck_id}")
+def get_deck_api(deck_id: str, db: Session = Depends(get_db)):
+    deck = db.query(Deck).filter(Deck.id == deck_id).first()
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    deck_model = DeckModel(
+        id=deck.id,
+        name=deck.name,
+        card_ids=deck.card_ids,
+        mana_budget=deck.mana_budget,
+    )
+    return deck_model.to_dict()
+
+
+@router.post("/decks")
+def create_deck_api(
+    deck_id: str = Form(...),
+    name: str = Form(...),
+    card_ids: str = Form(...),
+    mana_budget: int = Form(10),
+    db: Session = Depends(get_db),
+):
+    card_id_list = [c.strip() for c in card_ids.split(",") if c.strip()]
+    deck_model = DeckModel(
+        id=deck_id,
+        name=name,
+        card_ids=card_id_list,
+        mana_budget=mana_budget,
+    )
+    errors = deck_model.validate()
+    if errors:
+        return JSONResponse({"error": "Validation failed", "errors": errors}, status_code=400)
+
+    existing = db.query(Deck).filter(Deck.id == deck_id).first()
+    if existing:
+        return JSONResponse({"error": "Deck ID already exists"}, status_code=409)
+
+    deck = Deck(
+        id=deck_id,
+        name=name,
+        card_ids=card_id_list,
+        mana_budget=mana_budget,
+    )
+    db.add(deck)
+    db.commit()
+    return deck_model.to_dict()
+
+
+@router.delete("/decks/{deck_id}")
+def delete_deck_api(deck_id: str, db: Session = Depends(get_db)):
+    deck = db.query(Deck).filter(Deck.id == deck_id).first()
+    if not deck:
+        return JSONResponse({"error": "Deck not found"}, status_code=404)
+    db.delete(deck)
+    db.commit()
+    return {"message": "Deck deleted"}
+
+
+@router.post("/backtests/new")
+def start_backtest_api(
+    model_name: str = Form(...),
+    symbol: str = Form("AAPL"),
+    max_steps: int = Form(50),
+    deck_id: str = Form(None),
+):
+    db = SessionLocal()
+    run = BacktestRun(
+        model_name=model_name, data_source=f"polygon:{symbol}",
+        config={"max_steps": max_steps}, status="pending",
+        deck_id=deck_id,
+    )
+    db.add(run)
+    db.commit()
+    run_id = run.id
+    db.close()
+    threading.Thread(
+        target=run_backtest_task, args=(run_id, model_name, symbol, max_steps, deck_id),
+        daemon=True,
+    ).start()
+    return {"run_id": run_id, "status": "started"}

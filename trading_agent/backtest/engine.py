@@ -60,13 +60,21 @@ def backtest_agent(
     reward_fn=None,
     market=None,
     graph=None,
+    deck=None,
 ) -> Dict:
     llm_cache.clear()
     if market is None:
         market = HistoricalMarket(price_series.copy())
     steps = max_steps or len(price_series)
     if graph is None:
-        graph = build_graph(llm, fee_rate=fee_rate, risk_lambda=risk_lambda, max_steps=1, reward_fn=reward_fn or multicomponent_reward)
+        graph = build_graph(
+            llm,
+            fee_rate=fee_rate,
+            risk_lambda=risk_lambda,
+            max_steps=1,
+            reward_fn=reward_fn or multicomponent_reward,
+            deck=deck,
+        )
 
     state = create_initial_state(float(price_series.iloc[0]), initial_cash)
 

@@ -1,0 +1,17 @@
+{
+  "id": "trend-filter",
+  "name": "Trend Filter",
+  "rarity": "common",
+  "mana_cost": 2,
+  "description": "Blocks trades against the prevailing trend.",
+  "flavor_text": "Only fools fight the trend.",
+  "stats": {
+    "risk_tolerance": 0.4,
+    "volatility_preference": 0.4,
+    "drawdown_penalty": 0.6,
+    "trade_frequency": 0.4
+  },
+  "reward_type": null,
+  "nodes": ["trend_filter"],
+  "prompt_modifier": "Align with the trend. Only buy in uptrends, only sell in downtrends. If trend_allowed_buy is false, do not BUY. If trend_allowed_sell is false, do not SELL."
+}

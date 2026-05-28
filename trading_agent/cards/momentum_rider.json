@@ -1,0 +1,17 @@
+{
+  "id": "momentum-rider",
+  "name": "Momentum Rider",
+  "rarity": "rare",
+  "mana_cost": 3,
+  "description": "Rides trends hard. Rewards momentum, punishes hesitation.",
+  "flavor_text": "The trend is your friend \u2014 until it ends.",
+  "stats": {
+    "risk_tolerance": 0.7,
+    "volatility_preference": 0.8,
+    "drawdown_penalty": 0.2,
+    "trade_frequency": 0.9
+  },
+  "reward_type": "aggressive",
+  "nodes": ["momentum_analyzer"],
+  "prompt_modifier": "You are an aggressive momentum trader. Ride winners hard, cut losers fast. Prefer large positions in trending assets."
+}

@@ -1,0 +1,17 @@
+{
+  "id": "volatility-vampire",
+  "name": "Volatility Vampire",
+  "rarity": "epic",
+  "mana_cost": 4,
+  "description": "Feeds on chaos. Thrives when markets swing wildly.",
+  "flavor_text": "In the darkness of volatility, I find my feast.",
+  "stats": {
+    "risk_tolerance": 0.8,
+    "volatility_preference": 1.0,
+    "drawdown_penalty": 0.1,
+    "trade_frequency": 0.7
+  },
+  "reward_type": "custom",
+  "nodes": ["volatility_analyzer", "volatility_reward"],
+  "prompt_modifier": "You are a volatility trader. Large price swings are opportunities, not risks. Increase position size during high volatility periods."
+}

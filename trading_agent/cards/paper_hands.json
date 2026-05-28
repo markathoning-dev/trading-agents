@@ -1,0 +1,17 @@
+{
+  "id": "paper-hands",
+  "name": "Paper Hands",
+  "rarity": "common",
+  "mana_cost": 1,
+  "description": "Panics at the first sign of loss. Sells everything.",
+  "flavor_text": "Sell first, ask questions later.",
+  "stats": {
+    "risk_tolerance": 0.1,
+    "volatility_preference": 0.1,
+    "drawdown_penalty": 1.0,
+    "trade_frequency": 0.9
+  },
+  "reward_type": null,
+  "nodes": ["panic_sell"],
+  "prompt_modifier": "You panic easily. At the first sign of loss, sell everything. Preserve capital at all costs."
+}
