@@ -60,6 +60,16 @@ LLM-powered trading agent with LangGraph orchestration, backtesting, PINN and CG
 - **Web Dashboard** — Terminal-themed React SPA (Vite + TypeScript + Tailwind CSS) with FastAPI JSON backend. Data-dense Bloomberg-style interface with monospace typography, green-on-black phosphor glow, interactive charts, and sortable data tables. Deployable as static files independently.
 - **Docker Deployment** — Multi-stage Dockerfile builds frontend + backend, one-command startup
 
+## Screenshots
+
+| Dashboard | Backtests | New Run |
+|---|---|---|
+| [![Dashboard](screenshots/dashboard.png)](screenshots/dashboard.png) | [![Backtests](screenshots/backtests.png)](screenshots/backtests.png) | [![New Run](screenshots/new-run.png)](screenshots/new-run.png) |
+
+| Model Compare | Strategy Cards | Deck Builder |
+|---|---|---|
+| [![Model Compare](screenshots/model-compare.png)](screenshots/model-compare.png) | [![Strategy Cards](screenshots/cards.png)](screenshots/cards.png) | [![Deck Builder](screenshots/deck-builder.png)](screenshots/deck-builder.png) |
+
 ## Quick Start
 
 ### Prerequisites
@@ -185,7 +195,7 @@ trading-agent pinn generate --model-id 1 --paths 100 --steps 252
 ### Web Dashboard
 
 ```bash
-trading-agent serve
+trading-agent serve main
 ```
 
 Then open `http://localhost:8000/app` for the React dashboard.
@@ -529,7 +539,7 @@ cd web/frontend && npm run dev  # proxies /api to localhost:8000
 pytest -v
 
 # Start web dashboard (serves React build at /app/*)
-trading-agent serve
+trading-agent serve main
 ```
 
 ## Performance Notes
